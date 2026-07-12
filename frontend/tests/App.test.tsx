@@ -34,7 +34,7 @@ describe('App component', () => {
     expect(screen.getByRole('heading', { name: /StudyRAG V2/i })).toBeInTheDocument();
     
     await waitFor(() => {
-      expect(screen.getByText(/Backend Online/i)).toBeInTheDocument();
+      expect(screen.getByText(/API Live Monitoring/i)).toBeInTheDocument();
     });
   });
 });

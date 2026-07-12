@@ -1,21 +1,34 @@
-/* Design tokens chuẩn theo Mục 5.2 của STUDYRAG_PROJECT.md */
+/* Design tokens nâng cấp: Thư viện thiên văn (Astronomical Library Premium UI) */
 :root {
-  --color-bg: #0b1022;
-  --color-surface: #151b36;
-  --color-surface-raised: #1b2342;
-  --color-text: #f4f1ff;
-  --color-muted: #9298bb;
-  --color-primary: #8d7aff;
-  --color-primary-glow: rgba(141, 122, 255, 0.3);
-  --color-accent: #f7c56b;
-  --color-success: #74d4ad;
-  --color-danger: #ef7c8e;
-  --radius-card: 16px;
-  --radius-sm: 8px;
-  --radius-lg: 24px;
-  --shadow-card: 0 18px 50px rgba(0, 0, 0, 0.24);
-  --shadow-glow: 0 0 25px rgba(141, 122, 255, 0.25);
+  --color-bg: #060814;
+  --color-surface: rgba(18, 24, 48, 0.65);
+  --color-surface-raised: rgba(28, 38, 76, 0.75);
+  --color-surface-bright: rgba(40, 53, 105, 0.85);
+  --color-text: #f8f6ff;
+  --color-muted: #9aa2cc;
   
+  /* Celestial Palette */
+  --color-primary: #8d7aff;
+  --color-primary-light: #b4a6ff;
+  --color-primary-glow: rgba(141, 122, 255, 0.45);
+  --color-accent: #f7c56b;
+  --color-accent-glow: rgba(247, 197, 107, 0.4);
+  --color-cyan: #38bdf8;
+  --color-cyan-glow: rgba(56, 189, 248, 0.35);
+  --color-success: #34d399;
+  --color-danger: #fb7185;
+
+  /* Typography */
   --font-serif: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* Dimensions & Shadows */
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-full: 9999px;
+  
+  --shadow-card: 0 20px 50px rgba(0, 0, 0, 0.45), 0 0 1px 1px rgba(141, 122, 255, 0.15);
+  --shadow-card-hover: 0 25px 60px rgba(0, 0, 0, 0.6), 0 0 30px rgba(141, 122, 255, 0.35);
+  --shadow-accent: 0 0 25px rgba(247, 197, 107, 0.4);
 }
