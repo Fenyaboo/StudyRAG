@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Radio, RefreshCw, Compass } from 'lucide-react';
+import { Cpu, RefreshCw, Activity, Terminal, Database, MessageSquare } from 'lucide-react';
 import { ConnectionState } from '../../types';
 
 interface HeaderProps {
@@ -16,23 +16,22 @@ export const Header: React.FC<HeaderProps> = ({
   onRefresh
 }) => {
   const navItems = [
-    { id: 'dashboard', label: '🔭 Đài quan sát' },
-    { id: 'library', label: '📚 Thư viện PDF (M1)' },
-    { id: 'chat', label: '💬 Hỏi đáp AI (M2-M3)' },
-    { id: 'history', label: '⌛ Lịch sử' },
-    { id: 'settings', label: '⚙️ Cài đặt' },
+    { id: 'dashboard', label: 'Dashboard', icon: <Activity size={15} /> },
+    { id: 'library', label: 'Kho Tài Liệu (M1)', icon: <Database size={15} /> },
+    { id: 'chat', label: 'Hỏi Đáp AI (M2-M3)', icon: <MessageSquare size={15} /> },
+    { id: 'history', label: 'Lịch Sử', icon: <Terminal size={15} /> },
+    { id: 'settings', label: 'Cài Đặt', icon: <Cpu size={15} /> },
   ];
 
   return (
     <header style={{
-      borderBottom: '1px solid rgba(141, 122, 255, 0.25)',
-      backgroundColor: 'rgba(6, 8, 20, 0.75)',
-      backdropFilter: 'blur(24px)',
+      borderBottom: '1px solid var(--color-border)',
+      backgroundColor: 'rgba(9, 13, 22, 0.8)',
+      backdropFilter: 'blur(20px)',
       position: 'sticky',
       top: 0,
       zIndex: 100,
-      padding: '0.85rem 2rem',
-      boxShadow: '0 10px 35px rgba(0, 0, 0, 0.6)'
+      padding: '0.75rem 2rem',
     }}>
       <div style={{
         maxWidth: '1360px',
@@ -46,48 +45,47 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Brand */}
         <div 
           onClick={() => setActiveTab('dashboard')}
-          style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', cursor: 'pointer' }}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}
         >
           <div style={{
-            width: '44px',
-            height: '44px',
-            borderRadius: '14px',
-            background: 'linear-gradient(135deg, rgba(141, 122, 255, 0.3), rgba(247, 197, 107, 0.25))',
-            border: '1px solid rgba(141, 122, 255, 0.6)',
+            width: '40px',
+            height: '40px',
+            borderRadius: '10px',
+            background: 'linear-gradient(135deg, var(--color-primary), #4f46e5)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 0 20px rgba(141, 122, 255, 0.45)',
-            animation: 'floatSmooth 4s ease-in-out infinite'
+            boxShadow: '0 4px 14px rgba(99, 102, 241, 0.4)'
           }}>
-            <Sparkles size={24} color="var(--color-accent)" />
+            <Cpu size={22} color="#fff" />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <h1 className="glow-text" style={{ fontSize: '1.45rem', lineHeight: 1.2, margin: 0 }}>
-                StudyRAG V2
+              <h1 style={{ fontSize: '1.3rem', fontWeight: 700, margin: 0, letterSpacing: '-0.03em', color: '#fff' }}>
+                StudyRAG
               </h1>
               <span style={{
-                fontSize: '0.65rem',
+                fontSize: '0.62rem',
                 fontWeight: 700,
-                padding: '0.15rem 0.5rem',
-                borderRadius: '6px',
-                background: 'linear-gradient(90deg, var(--color-primary), #c084fc)',
-                color: '#fff',
+                padding: '0.15rem 0.45rem',
+                borderRadius: '4px',
+                background: 'rgba(99, 102, 241, 0.18)',
+                color: 'var(--color-primary-light)',
+                border: '1px solid rgba(99, 102, 241, 0.3)',
                 letterSpacing: '0.05em',
                 textTransform: 'uppercase'
               }}>
-                PRO
+                STUDIO V2
               </span>
             </div>
-            <span style={{ fontSize: '0.78rem', color: 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-              <Compass size={12} color="var(--color-cyan)" /> Thư viện Thiên văn — Trợ lý Ôn thi Lớp 12
+            <span style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>
+              AI Knowledge & Exam Assistant cho Lớp 12
             </span>
           </div>
         </div>
 
         {/* Navigation Tabs */}
-        <nav style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+        <nav style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', background: 'rgba(255, 255, 255, 0.03)', padding: '0.25rem', borderRadius: '12px', border: '1px solid var(--color-border)' }}>
           {navItems.map((item) => {
             const isActive = activeTab === item.id;
             return (
@@ -95,20 +93,22 @@ export const Header: React.FC<HeaderProps> = ({
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
                 style={{
-                  padding: '0.55rem 1.15rem',
-                  borderRadius: '12px',
-                  fontSize: '0.9rem',
+                  padding: '0.45rem 0.95rem',
+                  borderRadius: '8px',
+                  fontSize: '0.86rem',
                   fontWeight: isActive ? 600 : 500,
                   color: isActive ? '#fff' : 'var(--color-muted)',
-                  background: isActive 
-                    ? 'linear-gradient(135deg, rgba(141, 122, 255, 0.35), rgba(56, 189, 248, 0.2))' 
-                    : 'transparent',
-                  border: isActive 
-                    ? '1px solid rgba(141, 122, 255, 0.6)' 
-                    : '1px solid transparent',
-                  boxShadow: isActive ? '0 0 18px rgba(141, 122, 255, 0.3)' : 'none',
+                  background: isActive ? 'var(--color-primary)' : 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  transition: 'all 0.15s ease',
+                  boxShadow: isActive ? '0 2px 10px rgba(99, 102, 241, 0.4)' : 'none',
                 }}
               >
+                {item.icon}
                 {item.label}
               </button>
             );
@@ -120,64 +120,65 @@ export const Header: React.FC<HeaderProps> = ({
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '0.55rem',
-            padding: '0.45rem 0.95rem',
-            borderRadius: 'var(--radius-full)',
-            backgroundColor: 'rgba(18, 24, 48, 0.85)',
-            border: connectionState === 'online'
-              ? '1px solid rgba(52, 211, 153, 0.4)'
-              : connectionState === 'offline'
-              ? '1px solid rgba(251, 113, 133, 0.4)'
-              : '1px solid rgba(247, 197, 107, 0.4)',
-            boxShadow: connectionState === 'online'
-              ? '0 0 15px rgba(52, 211, 153, 0.2)'
-              : 'none',
-            fontSize: '0.82rem'
+            gap: '0.5rem',
+            padding: '0.35rem 0.8rem',
+            borderRadius: '20px',
+            background: connectionState === 'connected'
+              ? 'rgba(16, 185, 129, 0.1)'
+              : connectionState === 'error'
+              ? 'rgba(239, 68, 68, 0.1)'
+              : 'rgba(245, 158, 11, 0.1)',
+            border: `1px solid ${
+              connectionState === 'connected'
+                ? 'rgba(16, 185, 129, 0.3)'
+                : connectionState === 'error'
+                ? 'rgba(239, 68, 68, 0.3)'
+                : 'rgba(245, 158, 11, 0.3)'
+            }`
           }}>
-            <Radio
-              size={15}
-              color={
-                connectionState === 'online'
-                  ? 'var(--color-success)'
-                  : connectionState === 'offline'
-                  ? 'var(--color-danger)'
-                  : 'var(--color-accent)'
-              }
-              style={{
-                animation: connectionState === 'checking' ? 'pulse 1.2s infinite' : 'none'
-              }}
-            />
             <span style={{
-              color:
-                connectionState === 'online'
-                  ? 'var(--color-success)'
-                  : connectionState === 'offline'
-                  ? 'var(--color-danger)'
-                  : 'var(--color-accent)',
-              fontWeight: 600
+              width: '7px',
+              height: '7px',
+              borderRadius: '50%',
+              backgroundColor: connectionState === 'connected'
+                ? 'var(--color-success)'
+                : connectionState === 'error'
+                ? 'var(--color-danger)'
+                : 'var(--color-warning)'
+            }} />
+            <span style={{
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              color: connectionState === 'connected'
+                ? 'var(--color-success)'
+                : connectionState === 'error'
+                ? 'var(--color-danger)'
+                : 'var(--color-warning)'
             }}>
-              {connectionState === 'online' && 'API Live Monitoring'}
-              {connectionState === 'offline' && 'Backend Standby'}
-              {connectionState === 'checking' && 'Đang dò sóng API...'}
+              {connectionState === 'connected' && 'Backend Connected'}
+              {connectionState === 'checking' && 'Connecting...'}
+              {connectionState === 'error' && 'Disconnected'}
             </span>
           </div>
 
           <button
             onClick={onRefresh}
-            title="Dò lại sóng kết nối Backend"
+            title="Làm mới trạng thái API"
             style={{
-              background: 'rgba(141, 122, 255, 0.15)',
-              border: '1px solid rgba(141, 122, 255, 0.35)',
-              borderRadius: '12px',
-              padding: '0.55rem',
+              width: '34px',
+              height: '34px',
+              borderRadius: '8px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid var(--color-border)',
               color: 'var(--color-text)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+              cursor: 'pointer',
+              transition: 'background 0.2s'
             }}
           >
-            <RefreshCw size={17} color="var(--color-primary-light)" />
+            <RefreshCw size={14} />
           </button>
         </div>
       </div>

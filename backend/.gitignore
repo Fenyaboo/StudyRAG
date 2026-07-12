@@ -1,0 +1,22 @@
+# Virtual environment & Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Environment variables
+.env
+.env.local
+
+# Local Data storage & SQLite
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log

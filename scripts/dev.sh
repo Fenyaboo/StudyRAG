@@ -3,7 +3,7 @@
 
 set -e
 
-echo "🌌 [StudyRAG V2] Khởi động hệ thống Thiên văn (No-Docker Mode)..."
+echo "🌌 [StudyRAG] Khởi động hệ thống Thiên văn (No-Docker Mode)..."
 
 # 1. Kiểm tra / tạo môi trường ảo Python cho backend
 if [ ! -d "backend/.venv" ]; then
@@ -39,7 +39,7 @@ cleanup() {
 trap cleanup SIGINT SIGTERM
 
 echo "================================================================"
-echo "🔭 TRẠM THIÊN VĂN STUDYRAG V2 ĐÃ SẴN SÀNG:"
+echo "🔭 TRẠM THIÊN VĂN STUDYRAG ĐÃ SẴN SÀNG:"
 echo "👉 Frontend Giao diện: http://localhost:5173"
 echo "👉 Backend API Docs  : http://localhost:8000/docs"
 echo "👉 Nhấn Ctrl + C để tắt toàn bộ trạm."

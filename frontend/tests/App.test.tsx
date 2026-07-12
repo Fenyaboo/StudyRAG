@@ -24,6 +24,9 @@ vi.mock('../src/services/api', () => ({
         details: {},
       },
     }),
+    getDocuments: vi.fn().mockResolvedValue({
+      data: []
+    }),
   },
 }));
 
@@ -31,10 +34,10 @@ describe('App component', () => {
   it('renders StudyRAG V2 title and checks connection', async () => {
     render(<App />);
     
-    expect(screen.getByRole('heading', { name: /StudyRAG V2/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /^StudyRAG$/i })).toBeInTheDocument();
     
     await waitFor(() => {
-      expect(screen.getByText(/API Live Monitoring/i)).toBeInTheDocument();
+      expect(screen.getByText(/System Status & API Telemetry/i)).toBeInTheDocument();
     });
   });
 });

@@ -4,6 +4,8 @@ import { StatusCard } from '../components/common/StatusCard';
 import { apiService } from '../services/api';
 import { HealthStatus, ReadyStatus, ConnectionState } from '../types';
 import { BookOpen, MessageSquare, History, Settings, CheckSquare, Sparkles, Github, Layers, Star, Award } from 'lucide-react';
+import { UploadDropzone } from '../components/library/UploadDropzone';
+import { DocumentList } from '../components/library/DocumentList';
 import '../styles/index.css';
 
 interface DemoCitation {
@@ -28,6 +30,45 @@ export const App: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [selectedSubject, setSelectedSubject] = useState<string>('tất cả');
+  const [documents, setDocuments] = useState<any[]>([]);
+
+  const fetchDocuments = useCallback(async () => {
+    const res = await apiService.getDocuments();
+    if (res.data) {
+      setDocuments(res.data);
+    }
+  }, []);
+
+  const checkConnection = useCallback(async () => {
+    setConnectionState('checking');
+    const [healthRes, readyRes] = await Promise.all([
+      apiService.getHealth(),
+      apiService.getReady()
+    ]);
+
+    setLatencyMs(healthRes.latencyMs);
+
+    if (healthRes.data && healthRes.data.status === 'ok') {
+      setHealth(healthRes.data);
+      if (readyRes.data) {
+        setReady(readyRes.data);
+      }
+      setConnectionState('connected');
+      setErrorMessage('');
+      fetchDocuments();
+    } else {
+      setHealth(null);
+      setReady(null);
+      setConnectionState('error');
+      setErrorMessage(healthRes.error || 'Failed to connect to API http://localhost:8000');
+    }
+  }, [fetchDocuments]);
+
+  useEffect(() => {
+    checkConnection();
+    const interval = setInterval(checkConnection, 30000);
+    return () => clearInterval(interval);
+  }, [checkConnection]);
 
   // Interactive AI RAG Demo state
   const demoQueries: DemoQuery[] = [
@@ -60,55 +101,30 @@ export const App: React.FC = () => {
 
   const [activeDemoIndex, setActiveDemoIndex] = useState<number>(0);
 
-  const checkConnection = useCallback(async () => {
-    setConnectionState('checking');
-    const healthRes = await apiService.getHealth();
-    
-    if (healthRes.data) {
-      setHealth(healthRes.data);
-      setLatencyMs(healthRes.latencyMs);
-      const readyRes = await apiService.getReady();
-      setReady(readyRes.data);
-      setConnectionState('online');
-      setErrorMessage('');
-    } else {
-      setHealth(null);
-      setReady(null);
-      setConnectionState('offline');
-      setErrorMessage(healthRes.error || 'Failed to connect to API');
-    }
-  }, []);
-
-  useEffect(() => {
-    checkConnection();
-    const interval = setInterval(checkConnection, 30000);
-    return () => clearInterval(interval);
-  }, [checkConnection]);
-
   const roadmapMilestones = [
     {
       id: 'M0',
-      title: 'Scaffold & Fantasy UI Foundation',
-      desc: 'Thiết lập Monorepo React/Vite/TS + FastAPI, Design Tokens Thiên văn, /health & /ready API, Docker & CI/CD workflows sẵn sàng deploy Github/Vercel.',
+      title: 'Scaffold & AI Studio Foundation',
+      desc: 'Thiết lập Monorepo React/Vite/TS + FastAPI, Design Tokens AI Studio Pro SaaS Tech, /health & /ready API, Docker & CI/CD workflows.',
       status: 'done',
       badge: '✓ Đang hoạt động',
       color: 'var(--color-success)'
     },
     {
       id: 'M1',
-      title: 'Document Ingestion Pipeline',
-      desc: 'Nạp và kiểm tra PDF đề thi 25MB, trích xuất text từng trang với PyMuPDF, chunk tài liệu theo câu hỏi & heading overlap, lưu trữ JSONL & SQLite.',
-      status: 'pending',
-      badge: 'Bước tiếp theo',
-      color: 'var(--color-primary-light)'
+      title: 'Document Ingestion & Supabase Pipeline',
+      desc: 'Nạp và kiểm tra PDF đề thi 25MB, trích xuất text từng trang với PyMuPDF, chunk tài liệu theo câu hỏi & heading overlap, lưu trữ Supabase pgvector / SQLite.',
+      status: 'done',
+      badge: '✓ Hoàn tất M1',
+      color: 'var(--color-success)'
     },
     {
       id: 'M2',
       title: 'Vector Retrieval & Search API',
-      desc: 'Lập chỉ mục vector local với ChromaDB và Sentence Transformers (Vietnamese bi-encoder), tìm kiếm ngữ nghĩa đạt Recall@5 >= 0.80.',
+      desc: 'Lập chỉ mục vector với ChromaDB/Supabase pgvector và Sentence Transformers (Vietnamese bi-encoder), tìm kiếm ngữ nghĩa đạt Recall@5 >= 0.80.',
       status: 'pending',
-      badge: 'Qũy đạo M2',
-      color: 'var(--color-cyan)'
+      badge: 'Bước tiếp theo (M2)',
+      color: 'var(--color-accent)'
     },
     {
       id: 'M3',
@@ -144,7 +160,7 @@ export const App: React.FC = () => {
             <div style={{ textAlign: 'center', margin: '1rem 0 3.5rem 0', position: 'relative' }}>
               <div className="badge-celestial" style={{ marginBottom: '1.25rem' }}>
                 <Sparkles size={16} color="var(--color-accent)" />
-                <span>Phiên bản Thiên văn v2.0.0 — Kiến trúc AI RAG Lớp 12 Chuẩn Mực</span>
+                <span>Phiên bản AI Studio v2.0.0 — Kiến trúc AI RAG Lớp 12 Chuẩn Mực</span>
               </div>
 
               <h2 className="glow-text" style={{ fontSize: '3.1rem', lineHeight: 1.25, maxWidth: '960px', margin: '0 auto 1.25rem auto' }}>
@@ -158,7 +174,7 @@ export const App: React.FC = () => {
               {/* Subject Selector Chips */}
               <div style={{ display: 'flex', justifyContent: 'center', gap: '0.85rem', flexWrap: 'wrap' }}>
                 {[
-                  { id: 'tất cả', label: '🌌 Tất cả môn học' },
+                  { id: 'tất cả', label: '🌐 Tất cả môn học' },
                   { id: 'Toán Học', label: '📐 Toán Học Lớp 12' },
                   { id: 'Vật Lý', label: '⚡ Vật Lý Lớp 12' },
                   { id: 'Hóa Học', label: '🧪 Hóa Học Lớp 12' },
@@ -429,27 +445,33 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {activeTab !== 'dashboard' && (
+        {activeTab === 'library' && (
+          <div style={{ maxWidth: '1200px', margin: '0 auto', paddingBottom: '3rem' }}>
+            <UploadDropzone onSuccess={fetchDocuments} />
+            <DocumentList documents={documents} onRefresh={fetchDocuments} />
+          </div>
+        )}
+
+        {activeTab !== 'dashboard' && activeTab !== 'library' && (
           <div className="glass-card" style={{ textAlign: 'center', padding: '5rem 2.5rem', maxWidth: '760px', margin: '3rem auto' }}>
             <div style={{
               width: '80px',
               height: '80px',
               borderRadius: '24px',
-              background: 'linear-gradient(135deg, rgba(141, 122, 255, 0.25), rgba(56, 189, 248, 0.2))',
+              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(56, 189, 248, 0.2))',
               border: '1px solid var(--color-primary)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               margin: '0 auto 1.75rem auto',
-              boxShadow: '0 0 35px rgba(141, 122, 255, 0.4)'
+              boxShadow: '0 0 35px rgba(99, 102, 241, 0.4)'
             }}>
-              {activeTab === 'library' && <BookOpen size={40} color="var(--color-primary-light)" />}
               {activeTab === 'chat' && <MessageSquare size={40} color="var(--color-primary-light)" />}
               {activeTab === 'history' && <History size={40} color="var(--color-primary-light)" />}
               {activeTab === 'settings' && <Settings size={40} color="var(--color-primary-light)" />}
             </div>
             <h3 style={{ fontSize: '1.85rem', marginBottom: '1rem', color: '#fff' }}>
-              Trạm Điều Khiển: {activeTab.toUpperCase()} — Sẽ kích hoạt ở Milestone tiếp theo
+              AI Studio Module: {activeTab.toUpperCase()} — Sẽ kích hoạt ở Milestone tiếp theo
             </h3>
             <p style={{ color: 'var(--color-muted)', marginBottom: '2rem', lineHeight: 1.7, fontSize: '1.05rem' }}>
               Theo lộ trình khắt khe của <strong style={{ color: 'var(--color-accent)' }}>STUDYRAG_PROJECT.md</strong>, mỗi Milestone được kiểm thử chất lượng AI toàn diện (Recall, Groundedness) trước khi mở khóa giao diện quản trị tương ứng.
@@ -459,35 +481,36 @@ export const App: React.FC = () => {
               style={{
                 padding: '0.75rem 2rem',
                 borderRadius: '12px',
-                background: 'linear-gradient(135deg, rgba(141, 122, 255, 0.3), rgba(28, 38, 76, 0.9))',
-                border: '1px solid var(--color-primary)',
+                background: 'linear-gradient(135deg, var(--color-primary), #4f46e5)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
                 color: '#fff',
                 fontWeight: 600,
                 fontSize: '0.98rem',
-                boxShadow: '0 5px 20px rgba(0,0,0,0.4)'
+                cursor: 'pointer',
+                boxShadow: '0 5px 20px rgba(99, 102, 241, 0.3)'
               }}
             >
-              🔭 Quay lại Đài quan sát Dashboard
+              Trở về Dashboard Quản Trị
             </button>
           </div>
         )}
       </main>
 
       <footer style={{
-        borderTop: '1px solid rgba(141, 122, 255, 0.2)',
+        borderTop: '1px solid var(--color-border)',
         padding: '2rem 1.5rem',
         textAlign: 'center',
         color: 'var(--color-muted)',
         fontSize: '0.9rem',
-        backgroundColor: 'rgba(6, 8, 20, 0.8)',
+        backgroundColor: 'rgba(9, 13, 22, 0.9)',
         backdropFilter: 'blur(20px)'
       }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <span style={{ fontWeight: 600, color: 'var(--color-text)' }}>
-            StudyRAG V2 © 2026 — Trợ lý RAG Ôn thi THPT Quốc Gia Toán, Lý, Hóa
+            StudyRAG © 2026 — Trợ lý RAG Ôn thi THPT Quốc Gia Toán, Lý, Hóa
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            Thiết kế <strong style={{ color: 'var(--color-accent)' }}>Thư Viện Thiên Văn (Astronomical Library UI)</strong>
+            Thiết kế <strong style={{ color: 'var(--color-accent)' }}>Modern AI Studio Pro SaaS Tech UI</strong>
           </span>
         </div>
       </footer>

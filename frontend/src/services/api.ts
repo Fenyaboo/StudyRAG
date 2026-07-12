@@ -50,5 +50,53 @@ export const apiService = {
     } catch (err: any) {
       return { data: null, error: err.message || 'Network disconnected' };
     }
+  },
+
+  async ingestDocument(file: File, title?: string, subject?: string, docType?: string): Promise<{ data: any; error?: { code: string; message: string; details?: any } }> {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      if (title) formData.append('title', title);
+      if (subject) formData.append('subject', subject);
+      if (docType) formData.append('doc_type', docType);
+
+      const res = await fetch(`${API_BASE_URL}/ingest`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        return { data: null, error: json.error || { code: 'UPLOAD_FAILED', message: `HTTP status ${res.status}` } };
+      }
+      return { data: json };
+    } catch (err: any) {
+      return { data: null, error: { code: 'NETWORK_ERROR', message: err.message || 'Lỗi kết nối tới máy chủ.' } };
+    }
+  },
+
+  async getDocuments(): Promise<{ data: any[] | null; error?: string }> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/documents`, {
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!res.ok) return { data: null, error: `HTTP ${res.status}` };
+      const data = await res.json();
+      return { data };
+    } catch (err: any) {
+      return { data: null, error: err.message };
+    }
+  },
+
+  async deleteDocument(id: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/documents/${id}`, {
+        method: 'DELETE'
+      });
+      if (!res.ok) return { success: false, error: `HTTP ${res.status}` };
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
   }
 };
