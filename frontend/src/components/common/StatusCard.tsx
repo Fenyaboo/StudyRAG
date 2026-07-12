@@ -8,7 +8,7 @@ interface StatusCardProps {
   ready: ReadyStatus | null;
   latencyMs: number;
   errorMessage?: string;
-  onRefresh: () => void;
+  onRefresh?: () => void;
 }
 
 export const StatusCard: React.FC<StatusCardProps> = ({
@@ -19,7 +19,7 @@ export const StatusCard: React.FC<StatusCardProps> = ({
   errorMessage,
   onRefresh
 }) => {
-  const isOk = connectionState === 'connected';
+  const isOk = connectionState === 'connected' || connectionState === 'online';
 
   return (
     <div className="glass-card" style={{ padding: '1.75rem', marginBottom: '2rem' }}>
@@ -142,8 +142,19 @@ export const StatusCard: React.FC<StatusCardProps> = ({
           background: 'rgba(255, 255, 255, 0.02)',
           border: '1px solid var(--color-border)'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem', color: 'var(--color-muted)', fontSize: '0.82rem' }}>
-            <Clock size={15} /> Thời Gian Máy Chủ
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem', color: 'var(--color-muted)', fontSize: '0.82rem' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Clock size={15} /> Thời Gian Máy Chủ
+            </span>
+            {onRefresh && (
+              <button
+                onClick={onRefresh}
+                title="Làm mới trạng thái"
+                style={{ background: 'transparent', border: 'none', color: 'var(--color-primary-light)', cursor: 'pointer', padding: 0, fontSize: '0.78rem' }}
+              >
+                🔄 Refresh
+              </button>
+            )}
           </div>
           <div style={{ fontSize: '0.95rem', fontWeight: 500, color: 'var(--color-text)' }}>
             {health?.timestamp ? new Date(health.timestamp).toLocaleTimeString('vi-VN') : new Date().toLocaleTimeString('vi-VN')}

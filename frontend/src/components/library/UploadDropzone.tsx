@@ -34,7 +34,7 @@ export const UploadDropzone: React.FC<UploadDropzoneProps> = ({ onSuccess }) => 
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const selected = e.dataTransfer.files[0];
-      if (selected.type === 'application/pdf' || selected.name.toLowerCase().endswith('.pdf')) {
+      if (selected.type === 'application/pdf' || selected.name.toLowerCase().endsWith('.pdf')) {
         setFile(selected);
         if (!title) setTitle(selected.name.replace(/\.pdf$/i, ''));
         setStatus('idle');
@@ -243,6 +243,11 @@ export const UploadDropzone: React.FC<UploadDropzoneProps> = ({ onSuccess }) => 
             <p style={{ fontSize: '0.88rem', color: 'var(--color-text)', margin: 0 }}>
               {errorMessage}
             </p>
+            {errorDetails && (
+              <div style={{ fontSize: '0.82rem', color: 'var(--color-muted)', marginTop: '0.5rem', background: 'rgba(0,0,0,0.2)', padding: '0.5rem', borderRadius: '6px' }}>
+                Chi tiết trang quét: {JSON.stringify(errorDetails)}
+              </div>
+            )}
           </div>
         )}
 

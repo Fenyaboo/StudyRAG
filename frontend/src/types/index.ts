@@ -14,4 +14,4 @@ export interface ReadyStatus {
   details: Record<string, any>;
 }
 
-export type ConnectionState = 'checking' | 'online' | 'offline';
+export type ConnectionState = 'checking' | 'online' | 'offline' | 'connected' | 'error';
