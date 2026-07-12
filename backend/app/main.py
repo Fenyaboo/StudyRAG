@@ -14,8 +14,9 @@ app = FastAPI(
 # Cấu hình CORS cho phép Frontend kết nối
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.FRONTEND_ORIGINS if isinstance(settings.FRONTEND_ORIGINS, list) else ["*"],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_origin_regex="https://.*",
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
