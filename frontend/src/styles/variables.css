@@ -1,0 +1,21 @@
+/* Design tokens chuẩn theo Mục 5.2 của STUDYRAG_PROJECT.md */
+:root {
+  --color-bg: #0b1022;
+  --color-surface: #151b36;
+  --color-surface-raised: #1b2342;
+  --color-text: #f4f1ff;
+  --color-muted: #9298bb;
+  --color-primary: #8d7aff;
+  --color-primary-glow: rgba(141, 122, 255, 0.3);
+  --color-accent: #f7c56b;
+  --color-success: #74d4ad;
+  --color-danger: #ef7c8e;
+  --radius-card: 16px;
+  --radius-sm: 8px;
+  --radius-lg: 24px;
+  --shadow-card: 0 18px 50px rgba(0, 0, 0, 0.24);
+  --shadow-glow: 0 0 25px rgba(141, 122, 255, 0.25);
+  
+  --font-serif: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}

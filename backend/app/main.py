@@ -1,0 +1,35 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.core.config import settings
+from app.api.routes import system
+
+app = FastAPI(
+    title="StudyRAG V2 Backend API",
+    description="Trợ lý ôn thi từ tài liệu cá nhân lớp 12 — Toán, Lý, Hóa",
+    version="2.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
+
+# Cấu hình CORS cho phép Frontend kết nối
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.FRONTEND_ORIGINS if isinstance(settings.FRONTEND_ORIGINS, list) else ["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Mount các Router API V1
+app.include_router(system.router, prefix="/api/v1")
+
+@app.get("/", tags=["root"])
+async def root():
+    return {
+        "name": "StudyRAG V2 Backend API",
+        "version": "2.0.0",
+        "status": "online",
+        "docs": "/docs",
+        "health": "/api/v1/health",
+        "ready": "/api/v1/ready"
+    }

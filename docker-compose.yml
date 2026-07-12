@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: studyrag-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/tests:/app/tests
+      - ./data:/app/data
+    environment:
+      - APP_ENV=development
+      - APP_HOST=0.0.0.0
+      - APP_PORT=8000
+      - FRONTEND_ORIGINS=http://localhost:5173
+      - DATABASE_URL=sqlite:///./data/studyrag.db
+      - CHROMA_PATH=./data/chroma
+      - UPLOAD_DIR=./data/raw
+      - PROCESSED_DIR=./data/processed
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: studyrag-frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/index.html:/app/index.html
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000/api/v1
+    depends_on:
+      - backend
+    restart: unless-stopped
