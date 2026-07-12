@@ -3,7 +3,8 @@
 help:
 	@echo "StudyRAG V2 Local Commands:"
 	@echo "  make setup     - Cài đặt dependency cho cả Backend và Frontend"
-	@echo "  make dev       - Chạy song song Backend (:8000) và Frontend (:5173)"
+	@echo "  make start     - Chạy song song Backend & Frontend TRỰC TIẾP (Không cần Docker)"
+	@echo "  make dev       - Chạy song song qua Docker Compose"
 	@echo "  make test      - Chạy unit/integration test cho cả Backend và Frontend"
 	@echo "  make evaluate  - Chạy script đánh giá retrieval"
 	@echo "  make clean     - Dọn dẹp cache và file tạm"
@@ -16,6 +17,10 @@ setup:
 	@echo "Setting up Frontend..."
 	cd frontend && npm install
 	@echo "Setup complete!"
+
+start:
+	@chmod +x scripts/dev.sh
+	@./scripts/dev.sh
 
 dev:
 	@echo "Starting dev servers with Docker Compose..."
