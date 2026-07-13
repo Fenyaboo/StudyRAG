@@ -17,10 +17,7 @@ services:
       - APP_HOST=0.0.0.0
       - APP_PORT=8000
       - FRONTEND_ORIGINS=http://localhost:5173
-      - DATABASE_URL=sqlite:///./data/studyrag.db
-      - CHROMA_PATH=./data/chroma
-      - UPLOAD_DIR=./data/raw
-      - PROCESSED_DIR=./data/processed
+      - DATA_DIR=/app/data
     restart: unless-stopped
 
   frontend:

@@ -92,7 +92,7 @@ export const StatusCard: React.FC<StatusCardProps> = ({
           </div>
         </div>
 
-        {/* Database & Vector Store */}
+        {/* Retrieval index */}
         <div style={{
           padding: '1rem',
           borderRadius: '10px',
@@ -100,12 +100,12 @@ export const StatusCard: React.FC<StatusCardProps> = ({
           border: '1px solid var(--color-border)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem', color: 'var(--color-muted)', fontSize: '0.82rem' }}>
-            <Database size={15} color="var(--color-accent)" /> Vector Storage Engine
+            <Database size={15} color="var(--color-accent)" /> Chỉ mục truy xuất
           </div>
           <div style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--color-text)' }}>
             {ready?.status === 'ready' ? (
               <span style={{ color: 'var(--color-accent)', fontSize: '0.92rem' }}>
-                Supabase pgvector / SQLite
+                {Number(ready.details?.ready_document_count || 0)} tài liệu sẵn sàng · {ready.vector_store.replace(/_/g, ' ')}
               </span>
             ) : (
               <span style={{ color: 'var(--color-muted)', fontSize: '0.9rem' }}>Chưa kiểm tra</span>
@@ -113,7 +113,7 @@ export const StatusCard: React.FC<StatusCardProps> = ({
           </div>
         </div>
 
-        {/* AI Models */}
+        {/* AI provider */}
         <div style={{
           padding: '1rem',
           borderRadius: '10px',
@@ -121,16 +121,16 @@ export const StatusCard: React.FC<StatusCardProps> = ({
           border: '1px solid var(--color-border)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem', color: 'var(--color-muted)', fontSize: '0.82rem' }}>
-            <Cpu size={15} color="var(--color-success)" /> AI RAG Engine
+            <Cpu size={15} color="var(--color-success)" /> Mô hình trả lời AI
           </div>
           <div style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--color-text)' }}>
             {ready ? (
               <span style={{ color: 'var(--color-text)' }}>
-                Embedding: {ready.embedding_provider.split('/')[0]} <br/>
-                LLM: {ready.llm_provider} (Ready for Gemini/Ollama)
+                LLM: {ready.llm_provider}<br/>
+                Chỉ gọi khi tìm được nguồn phù hợp
               </span>
             ) : (
-              <span style={{ color: 'var(--color-muted)' }}>M1/M2/M3 Engine Pipeline</span>
+              <span style={{ color: 'var(--color-muted)' }}>Đang chờ kiểm tra hệ thống</span>
             )}
           </div>
         </div>

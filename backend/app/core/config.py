@@ -1,21 +1,36 @@
 import os
+from pathlib import Path
 from typing import List, Union
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import AnyHttpUrl, field_validator
+
+
+def _default_data_dir() -> Path:
+    """Use one persistent data directory regardless of the current working directory."""
+    configured_path = os.getenv("DATA_DIR")
+    if configured_path:
+        return Path(configured_path).expanduser().resolve()
+
+    backend_dir = Path(__file__).resolve().parents[2]
+    return (backend_dir.parent / "data").resolve()
+
+
+DEFAULT_DATA_DIR = _default_data_dir()
 
 class Settings(BaseSettings):
     APP_ENV: str = "development"
     APP_HOST: str = "0.0.0.0"
     APP_PORT: int = 8000
     FRONTEND_ORIGINS: Union[List[str], str] = "http://localhost:5173,http://127.0.0.1:5173"
-    DATABASE_URL: str = "sqlite:///./data/studyrag.db"
+    DATA_DIR: str = str(DEFAULT_DATA_DIR)
+    DATABASE_URL: str = f"sqlite:///{DEFAULT_DATA_DIR / 'studyrag.db'}"
     SUPABASE_URL: str = ""
     SUPABASE_PUBLISHABLE_KEY: str = ""
     SUPABASE_SECRET_KEY: str = ""
     VECTOR_STORE_TYPE: str = "sqlite_chroma"  # Hoặc "supabase_pgvector" khi dùng Supabase
-    CHROMA_PATH: str = "./data/chroma"
-    UPLOAD_DIR: str = "./data/raw"
-    PROCESSED_DIR: str = "./data/processed"
+    CHROMA_PATH: str = str(DEFAULT_DATA_DIR / "chroma")
+    UPLOAD_DIR: str = str(DEFAULT_DATA_DIR / "raw")
+    PROCESSED_DIR: str = str(DEFAULT_DATA_DIR / "processed")
     MAX_UPLOAD_MB: int = 25
     EMBEDDING_PROVIDER: str = "sentence_transformers"
     EMBEDDING_MODEL: str = "bkai-foundation-models/vietnamese-bi-encoder"

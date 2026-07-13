@@ -1,17 +1,88 @@
 import json
 import os
-import uuid
+import re
+import unicodedata
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 from app.core.config import settings
 
+
+_QUERY_STOP_WORDS = {
+    "a", "an", "ba", "cua", "cho", "den", "duoc", "duoi", "gi", "hay", "la", "mot",
+    "nao", "nhung", "o", "phan", "the", "theo", "trang", "tren", "trong", "tu", "va", "ve",
+    "vi", "voi", "cau", "bai", "du", "tinh", "cach", "dung", "hoan", "khong", "noi", "tai", "toan", "ton",
+}
+_PAGE_PATTERN = re.compile(r"\b(?:trang|page)\s*(\d+)\b")
+_QUESTION_PATTERN = re.compile(r"\b(?:cau|bai)\s*(\d+)\b")
+
+
+def _normalise_text(value: Any) -> str:
+    """Chuẩn hóa tiếng Việt và dấu câu để so khớp retrieval ổn định hơn."""
+    text = unicodedata.normalize("NFD", str(value or "").lower()).replace("đ", "d")
+    text = "".join(char for char in text if not unicodedata.combining(char))
+    return re.sub(r"[^a-z0-9]+", " ", text).strip()
+
+
+def _tokenise(value: Any) -> set[str]:
+    return set(re.findall(r"[a-z]+|\d+", _normalise_text(value)))
+
+
+def _query_features(query_text: str) -> tuple[set[str], Optional[int], Optional[str]]:
+    normalised = _normalise_text(query_text)
+    tokens = _tokenise(normalised)
+    terms = {
+        token for token in tokens
+        if not token.isdigit() and len(token) > 1 and token not in _QUERY_STOP_WORDS
+    }
+    page_match = _PAGE_PATTERN.search(normalised)
+    question_match = _QUESTION_PATTERN.search(normalised)
+    return terms, int(page_match.group(1)) if page_match else None, question_match.group(1) if question_match else None
+
+
+def _score_chunk(
+    query_terms: set[str],
+    requested_page: Optional[int],
+    requested_question: Optional[str],
+    content: str,
+    metadata: Dict[str, Any],
+) -> float:
+    """Chấm lexical score có ưu tiên cho section, số trang và số câu được hỏi."""
+    content_terms = _tokenise(content)
+    section_terms = _tokenise(metadata.get("section_title") or metadata.get("section"))
+    content_matches = query_terms & content_terms
+    section_matches = query_terms & section_terms
+    question_number = str(metadata.get("question_number") or "")
+    question_matches = requested_question is not None and question_number == requested_question
+
+    # Không đưa chunk không có bằng chứng textual vào LLM chỉ vì nó đủ dài.
+    if not content_matches and not section_matches and not question_matches:
+        return 0.0
+
+    score = min(0.68, 0.28 * len(content_matches))
+    score += min(0.18, 0.1 * len(section_matches))
+
+    if requested_page is not None:
+        page = metadata.get("page_number") or metadata.get("page")
+        if str(page) == str(requested_page):
+            score += 0.28
+
+    if question_matches:
+        score += 0.24
+
+    # Nhiều từ khóa trùng khớp là tín hiệu mạnh hơn một từ đơn lẻ.
+    if len(content_matches | section_matches) >= 2:
+        score += 0.08
+
+    return min(round(score, 4), 1.0)
+
+
 class StorageRepository:
     """
-    Hybrid Storage Engine cho Milestone 1:
+    Storage Engine cho StudyRAG:
     - Nếu sử dụng Supabase (VECTOR_STORE_TYPE == 'supabase_pgvector' hoặc DATABASE_URL có postgresql):
       Lưu trữ trên cloud PostgreSQL với pgvector.
     - Nếu sử dụng Local (sqlite_chroma):
-      Lưu trữ metadata tài liệu trên SQLite/JSONL và chuẩn bị sẵn sàng cho ChromaDB ở Milestone 2.
+      Lưu metadata/chunks trên JSONL và truy xuất lexical có chuẩn hóa tiếng Việt.
     """
     def __init__(self):
         self.storage_type = settings.VECTOR_STORE_TYPE
@@ -174,108 +245,110 @@ class StorageRepository:
 
         return len(chunks)
 
-    def search(self, query_text: str, top_k: int = 5, min_score: float = 0.25) -> List[Dict[str, Any]]:
-        """Tìm kiếm các đoạn văn bản (chunks) liên quan nhất với query."""
-        results = []
-        query_words = [w.lower().strip() for w in query_text.split() if len(w.strip()) > 1]
+    def search(
+        self,
+        query_text: str,
+        top_k: int = 5,
+        min_score: float = 0.25,
+        document_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Tìm các chunks có bằng chứng textual, ưu tiên đúng tài liệu/trang được hỏi."""
+        results: List[Dict[str, Any]] = []
+        query_terms, requested_page, requested_question = _query_features(query_text)
+        if not query_terms and requested_question is None:
+            return []
 
-        # 1. Nếu trên Supabase pgvector
+        # 1. Supabase/PostgreSQL. Lọc document trước khi giới hạn top_k để không làm rơi kết quả đúng.
         if self.is_postgres:
             try:
                 conn = self._get_pg_connection()
                 cur = conn.cursor()
-                cur.execute("""
+                where_clauses = ["d.status = %s"]
+                params: List[Any] = ["ready"]
+                if document_id:
+                    where_clauses.append("c.document_id = %s")
+                    params.append(document_id)
+                cur.execute(
+                    f"""
                     SELECT c.id, c.document_id, c.content, c.metadata, d.filename, d.title
                     FROM document_chunks c
                     JOIN documents d ON c.document_id = d.id
+                    WHERE {' AND '.join(where_clauses)}
                     LIMIT 200;
-                """)
+                    """,
+                    tuple(params),
+                )
                 rows = cur.fetchall()
                 cur.close()
                 conn.close()
 
-                for r in rows:
-                    content = r["content"] or ""
-                    meta = r["metadata"]
-                    if isinstance(meta, str):
+                for row in rows:
+                    content = row["content"] or ""
+                    metadata = row["metadata"]
+                    if isinstance(metadata, str):
                         try:
-                            meta = json.loads(meta)
-                        except Exception:
-                            meta = {}
-                    meta = meta or {}
-
-                    # Tính điểm tương đồng từ khóa / ngữ cảnh
-                    content_lower = content.lower()
-                    score = 0.0
-                    for w in query_words:
-                        if w in content_lower:
-                            score += 0.2
-                    if any(w in (meta.get("section", "").lower()) for w in query_words):
-                        score += 0.3
-                    if score == 0 and not query_words:
-                        score = 0.5
-                    elif score == 0 and len(content) > 20:
-                        score = 0.3  # Ngữ cảnh nền
-
+                            metadata = json.loads(metadata)
+                        except json.JSONDecodeError:
+                            metadata = {}
+                    metadata = metadata or {}
+                    score = _score_chunk(query_terms, requested_page, requested_question, content, metadata)
                     if score >= min_score:
                         results.append({
-                            "id": r["id"],
-                            "document_id": r["document_id"],
-                            "file_name": r["filename"] or r["title"] or "Tài liệu",
-                            "page": meta.get("page_number") or meta.get("page", 1),
+                            "id": row["id"],
+                            "document_id": row["document_id"],
+                            "file_name": row["filename"] or row["title"] or "Tài liệu",
+                            "page": metadata.get("page_number") or metadata.get("page", 1),
                             "content": content,
-                            "score": min(score, 1.0)
+                            "score": score,
                         })
-                results.sort(key=lambda x: x["score"], reverse=True)
+                results.sort(key=lambda item: (-item["score"], item["page"]))
                 return results[:top_k]
-            except Exception as e:
-                print(f"[CẢNH BÁO] Tìm kiếm Supabase lỗi: {str(e)}. Chuyển sang tìm kiếm Local JSONL.")
+            except Exception as error:
+                print(f"[CẢNH BÁO] Tìm kiếm Supabase lỗi: {str(error)}. Chuyển sang tìm kiếm Local JSONL.")
 
-        # 2. Tìm kiếm Local JSONL trong data/processed/
-        doc_registry = {d["id"]: d for d in self.list_documents()}
+        # 2. Local JSONL. Chỉ đọc chunks thuộc tài liệu đang ở trạng thái ready.
+        ready_documents = {
+            document["id"]: document
+            for document in self.list_documents()
+            if document.get("status") == "ready"
+        }
         if not os.path.exists(settings.PROCESSED_DIR):
             return []
 
-        for fname in os.listdir(settings.PROCESSED_DIR):
-            if not fname.endswith(".jsonl"):
+        for filename in os.listdir(settings.PROCESSED_DIR):
+            if not filename.endswith(".jsonl"):
                 continue
-            doc_id = fname[:-6]
-            doc_info = doc_registry.get(doc_id, {})
-            file_name = doc_info.get("filename") or doc_info.get("title") or f"Tài liệu ({doc_id[:6]})"
+            current_document_id = filename[:-6]
+            if document_id and current_document_id != document_id:
+                continue
+            document = ready_documents.get(current_document_id)
+            if not document:
+                continue
+            file_name = document.get("filename") or document.get("title") or f"Tài liệu ({current_document_id[:6]})"
+            path = os.path.join(settings.PROCESSED_DIR, filename)
 
-            fpath = os.path.join(settings.PROCESSED_DIR, fname)
             try:
-                with open(fpath, "r", encoding="utf-8") as f:
-                    for line in f:
+                with open(path, "r", encoding="utf-8") as file:
+                    for line in file:
                         if not line.strip():
                             continue
                         chunk = json.loads(line)
                         content = chunk.get("content") or chunk.get("text", "")
-                        meta = chunk.get("metadata", {}) or {}
-
-                        content_lower = content.lower()
-                        score = 0.0
-                        for w in query_words:
-                            if w in content_lower:
-                                score += 0.22
-                        if any(w in (meta.get("section", "").lower()) for w in query_words):
-                            score += 0.3
-                        if score == 0 and len(content) > 30:
-                            score = 0.28  # Đoạn thông tin nền
-
+                        metadata = chunk.get("metadata", {}) or {}
+                        score = _score_chunk(query_terms, requested_page, requested_question, content, metadata)
                         if score >= min_score:
                             results.append({
-                                "id": chunk.get("id", f"{doc_id}_{len(results)}"),
-                                "document_id": doc_id,
+                                "id": chunk.get("id", f"{current_document_id}_{len(results)}"),
+                                "document_id": current_document_id,
                                 "file_name": file_name,
-                                "page": meta.get("page_number") or meta.get("page", 1),
+                                "page": metadata.get("page_number") or metadata.get("page", 1),
                                 "content": content,
-                                "score": min(score, 1.0)
+                                "score": score,
                             })
-            except Exception as e:
-                print(f"[LỖI] Đọc file {fname}: {str(e)}")
+            except (OSError, json.JSONDecodeError) as error:
+                print(f"[LỖI] Đọc file {filename}: {str(error)}")
 
-        results.sort(key=lambda x: x["score"], reverse=True)
+        results.sort(key=lambda item: (-item["score"], item["page"]))
         return results[:top_k]
 
     def list_documents(self) -> List[Dict[str, Any]]:
@@ -294,6 +367,13 @@ class StorageRepository:
         with open(self.local_registry_file, "r", encoding="utf-8") as f:
             docs = json.load(f)
         return sorted(docs, key=lambda x: x.get("created_at", ""), reverse=True)
+
+    def has_ready_documents(self, document_id: Optional[str] = None) -> bool:
+        """Cho query route biết có corpus thật để tránh gọi LLM với context rỗng."""
+        return any(
+            document.get("status") == "ready" and (document_id is None or document.get("id") == document_id)
+            for document in self.list_documents()
+        )
 
     def delete_document(self, document_id: str) -> bool:
         if self.is_postgres:

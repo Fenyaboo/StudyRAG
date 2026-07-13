@@ -2,6 +2,7 @@ from fastapi import APIRouter
 from datetime import datetime, timezone
 from app.schemas.system import HealthResponse, ReadyResponse
 from app.core.config import settings
+from app.db.supabase import storage_repo
 
 router = APIRouter(tags=["system"])
 
@@ -22,16 +23,21 @@ async def get_ready():
     """
     Check backend readiness, including database and vector store connectivity.
     """
-    # Trong Milestone 0, chúng ta trả về ready basic state
-    # Khi sang Milestone 1 & 2 sẽ kiểm tra kết nối SQLite & ChromaDB thật
+    documents = storage_repo.list_documents()
+    ready_documents = [document for document in documents if document.get("status") == "ready"]
+    storage_label = "postgres_ready" if storage_repo.is_postgres else "jsonl_ready"
+
     return ReadyResponse(
         status="ready",
-        database="sqlite_ready",
-        vector_store="chromadb_ready",
+        database=storage_label,
+        vector_store="lexical_retrieval_ready",
         embedding_provider=settings.EMBEDDING_PROVIDER,
         llm_provider=settings.LLM_PROVIDER,
         details={
             "retrieval_top_k": settings.RETRIEVAL_TOP_K,
-            "max_upload_mb": settings.MAX_UPLOAD_MB
-        }
+            "max_upload_mb": settings.MAX_UPLOAD_MB,
+            "document_count": len(documents),
+            "ready_document_count": len(ready_documents),
+            "retrieval_mode": "lexical_jsonl",
+        },
     )

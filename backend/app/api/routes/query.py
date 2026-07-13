@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 from app.db.supabase import StorageRepository
@@ -32,6 +32,18 @@ class QueryResponse(BaseModel):
     latency_ms: int
     error: Optional[str] = None
 
+
+def _retrieval_guard_response(answer: str, error_code: str) -> QueryResponse:
+    """Return an actionable response without spending a provider call on empty context."""
+    return QueryResponse(
+        answer=answer,
+        citations=[],
+        provider="retrieval-guard",
+        model="no-llm-call",
+        latency_ms=0,
+        error=error_code,
+    )
+
 @router.post("/query", response_model=QueryResponse, summary="Thực hiện hỏi đáp RAG với tài liệu đã nạp")
 @router.post("/chat", response_model=QueryResponse, summary="Endpoint hỏi đáp (bí danh của /query)")
 async def execute_rag_query(request: QueryRequest):
@@ -45,21 +57,34 @@ async def execute_rag_query(request: QueryRequest):
     min_score = request.min_score if request.min_score is not None else settings.RETRIEVAL_MIN_SCORE
 
     try:
-        # Bước 1: Tìm kiếm vector trong kho tài liệu
+        # Do not ask an LLM to answer without a real, ready corpus.
+        if not storage_repo.has_ready_documents():
+            return _retrieval_guard_response(
+                "Kho tài liệu đang trống. Hãy tải ít nhất một file PDF vào Thư viện rồi đặt lại câu hỏi để mình có nguồn kiểm chứng.",
+                "NO_DOCUMENTS",
+            )
+
+        if request.document_id and not storage_repo.has_ready_documents(request.document_id):
+            return _retrieval_guard_response(
+                "Tài liệu bạn đã chọn không còn sẵn sàng để tra cứu. Hãy chọn lại một tài liệu trong Thư viện.",
+                "DOCUMENT_NOT_AVAILABLE",
+            )
+
+        # Bước 1: Tìm chunks liên quan trong kho tài liệu, đã lọc document từ đầu nếu người dùng chọn.
         search_results = storage_repo.search(
             query_text=request.query,
             top_k=top_k,
-            min_score=min_score
+            min_score=min_score,
+            document_id=request.document_id,
         )
 
-        # Nếu có chỉ định lọc theo document_id
-        if request.document_id:
-            search_results = [
-                res for res in search_results
-                if res.get("document_id") == request.document_id or res.get("file_name") == request.document_id
-            ]
+        if not search_results:
+            return _retrieval_guard_response(
+                "Mình chưa tìm thấy đoạn nào đủ liên quan trong tài liệu để trả lời chắc chắn. Bạn thử nêu rõ trang, câu hoặc chọn đúng tài liệu cần tra cứu nhé.",
+                "NO_RELEVANT_CONTEXT",
+            )
 
-        # Bước 2: Gọi dịch vụ AI để tổng hợp câu trả lời
+        # Bước 2: Chỉ gọi AI khi retrieval đã có context có bằng chứng.
         result = await LLMService.generate_grounded_answer(
             query=request.query,
             chunks=search_results,

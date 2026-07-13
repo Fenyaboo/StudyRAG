@@ -1,18 +1,20 @@
 import pytest
-from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 from app.main import app
 
-client = TestClient(app)
-
-def test_query_validation_error():
+@pytest.mark.asyncio
+async def test_query_validation_error():
     """Kiểm tra lỗi khi gửi câu hỏi rỗng"""
-    res = client.post("/api/v1/query", json={"query": ""})
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        res = await client.post("/api/v1/query", json={"query": ""})
     assert res.status_code == 400
     assert "không được để trống" in res.json()["detail"]
 
-def test_query_mock_rag():
+@pytest.mark.asyncio
+async def test_query_mock_rag():
     """Kiểm tra endpoint /query trả về đúng cấu trúc QueryResponse"""
-    res = client.post("/api/v1/query", json={"query": "Kiểm tra hệ thống RAG"})
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        res = await client.post("/api/v1/query", json={"query": "Kiểm tra hệ thống RAG"})
     assert res.status_code == 200
     data = res.json()
     assert "answer" in data

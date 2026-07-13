@@ -19,8 +19,9 @@ async def test_ready_endpoint():
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ready"
-    assert data["database"] == "sqlite_ready"
-    assert data["vector_store"] == "chromadb_ready"
+    assert data["database"] in {"jsonl_ready", "postgres_ready"}
+    assert data["vector_store"] == "lexical_retrieval_ready"
+    assert "ready_document_count" in data["details"]
 
 @pytest.mark.asyncio
 async def test_root_endpoint():

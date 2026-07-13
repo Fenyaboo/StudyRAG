@@ -1,4 +1,4 @@
-import { HealthStatus, ReadyStatus } from '../types';
+import { HealthStatus, QueryResponse, ReadyStatus } from '../types';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string) || 'http://localhost:8000/api/v1';
 
@@ -100,7 +100,7 @@ export const apiService = {
     }
   },
 
-  async queryRag(query: string, documentId?: string): Promise<{ data: any | null; error?: string }> {
+  async queryRag(query: string, documentId?: string): Promise<{ data: QueryResponse | null; error?: string }> {
     try {
       const res = await fetch(`${API_BASE_URL}/query`, {
         method: 'POST',
@@ -114,7 +114,7 @@ export const apiService = {
         const errData = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
         return { data: null, error: errData.detail || `HTTP ${res.status}` };
       }
-      const data = await res.json();
+      const data: QueryResponse = await res.json();
       return { data };
     } catch (err: any) {
       return { data: null, error: err.message };

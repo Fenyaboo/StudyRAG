@@ -154,7 +154,7 @@ export const App: React.FC = () => {
         onRefresh={checkConnection}
       />
 
-      <main style={{ flex: 1, padding: '2.5rem 1.5rem', maxWidth: '1360px', margin: '0 auto', width: '100%' }}>
+      <main className={`app-main${activeTab === 'chat' ? ' app-main--chat' : ''}`}>
         {activeTab === 'dashboard' && (
           <div>
             {/* Hero Section */}
@@ -454,7 +454,10 @@ export const App: React.FC = () => {
         )}
 
         {activeTab === 'chat' && (
-          <ChatPanel documents={documents} />
+          <ChatPanel
+            documents={documents}
+            onOpenLibrary={() => setActiveTab('library')}
+          />
         )}
 
         {activeTab !== 'dashboard' && activeTab !== 'library' && activeTab !== 'chat' && (

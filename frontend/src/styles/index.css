@@ -6,6 +6,11 @@
   padding: 0;
 }
 
+html {
+  min-height: 100%;
+  background: var(--color-bg);
+}
+
 body {
   font-family: var(--font-main);
   background-color: var(--color-bg);
@@ -31,6 +36,56 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--color-text);
 }
 
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button:not(:disabled) {
+  cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+a:focus-visible {
+  outline: 3px solid rgba(129, 140, 248, 0.48);
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.app-main {
+  width: 100%;
+  max-width: 1360px;
+  flex: 1;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem;
+}
+
+.app-main--chat {
+  max-width: none;
+  margin: 0;
+  padding: 2rem 1.5rem;
+  background:
+    radial-gradient(circle at 8% 6%, rgba(199, 210, 254, 0.46), transparent 29%),
+    radial-gradient(circle at 95% 0%, rgba(186, 230, 253, 0.38), transparent 26%),
+    #f5f7fc;
+}
+
 .glass-card {
   background: var(--color-surface);
   backdrop-filter: blur(20px);
@@ -53,13 +108,32 @@ h1, h2, h3, h4, h5, h6 {
   -webkit-text-fill-color: transparent;
 }
 
+.badge-celestial {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid rgba(129, 140, 248, 0.32);
+  border-radius: var(--radius-full);
+  padding: 0.35rem 0.75rem;
+  color: var(--color-primary-light);
+  background: rgba(99, 102, 241, 0.12);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.glow-text {
+  color: #fff;
+  text-shadow: 0 0 26px rgba(129, 140, 248, 0.28);
+}
+
 /* Spinner Animation */
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
 
-.spin {
+.spin,
+.animate-spin {
   animation: spin 1s linear infinite;
 }
 
@@ -86,4 +160,14 @@ h1, h2, h3, h4, h5, h6 {
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.25);
+}
+
+@media (max-width: 680px) {
+  .app-main {
+    padding: 1.35rem 1rem;
+  }
+
+  .app-main--chat {
+    padding: 1rem;
+  }
 }

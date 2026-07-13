@@ -1,11 +1,9 @@
 import pytest
 import io
-from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 from app.main import app
 from app.services.pdf_parser import parse_pdf_bytes, OCRRequiredException, PDFParseException
 from app.services.chunker import chunk_exam_document, chunk_textbook_document
-
-client = TestClient(app)
 
 def test_pdf_parser_empty_or_invalid():
     with pytest.raises(PDFParseException):
@@ -32,15 +30,19 @@ def test_chunk_exam_document_regex():
     assert q1_chunk["metadata"]["is_exam_question"] is True
     assert q1_chunk["metadata"]["page_number"] == 1
 
-def test_ingest_endpoint_invalid_file_type():
-    response = client.post(
-        "/api/v1/ingest",
-        files={"file": ("test.txt", b"Hello world", "text/plain")}
-    )
+@pytest.mark.asyncio
+async def test_ingest_endpoint_invalid_file_type():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            "/api/v1/ingest",
+            files={"file": ("test.txt", b"Hello world", "text/plain")}
+        )
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "INVALID_FILE_TYPE"
 
-def test_get_documents_endpoint():
-    response = client.get("/api/v1/documents")
+@pytest.mark.asyncio
+async def test_get_documents_endpoint():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/v1/documents")
     assert response.status_code == 200
     assert isinstance(response.json(), list)

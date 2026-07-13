@@ -8,6 +8,7 @@
   --color-primary: #6366f1;       /* Modern Indigo */
   --color-primary-light: #818cf8;
   --color-accent: #38bdf8;        /* Tech Sky Cyan */
+  --color-cyan: #38bdf8;
   --color-accent-glow: rgba(56, 189, 248, 0.25);
   
   --color-success: #10b981;       /* Emerald Green */
@@ -26,4 +27,5 @@
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 24px;
+  --radius-full: 999px;
 }

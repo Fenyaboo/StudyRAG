@@ -1,56 +1,102 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Sparkles, BookOpen, ShieldCheck, FileText, CheckCircle2 } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { BookOpen, Bot, CheckCircle2, FileText, Send, ShieldCheck, Sparkles, User, X } from 'lucide-react';
 import { ChatMessage, CitationItem } from '../../types';
 import { apiService } from '../../services/api';
+import '../../styles/chat.css';
 
-interface ChatPanelProps {
-  documents: any[];
+interface ChatDocument {
+  id: string;
+  filename?: string;
+  title?: string;
+  subject?: string;
+  status?: string;
 }
 
-export const ChatPanel: React.FC<ChatPanelProps> = ({ documents }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([
+interface ChatPanelProps {
+  documents: ChatDocument[];
+  onOpenLibrary: () => void;
+}
+
+const samplePrompts = [
+  'Tính khoảng cách từ A đến (SBC) trong Ví dụ 1 trang 1',
+  'Tóm tắt tính chất của tam diện vuông trong Lưu ý 2 trang 3',
+  'Đáp án và hướng giải câu 3 phần Bài tập rèn luyện trang 4',
+];
+
+const formatInlineContent = (line: string) => {
+  const fragments = line.split(/(\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*)/g);
+
+  return fragments.map((fragment, index) => {
+    if (fragment.startsWith('**') && fragment.endsWith('**')) {
+      return <strong key={index}>{fragment.slice(2, -2)}</strong>;
+    }
+
+    if (fragment.startsWith('`') && fragment.endsWith('`')) {
+      return <code key={index}>{fragment.slice(1, -1)}</code>;
+    }
+
+    if (fragment.startsWith('*') && fragment.endsWith('*')) {
+      return <em key={index}>{fragment.slice(1, -1)}</em>;
+    }
+
+    return <React.Fragment key={index}>{fragment}</React.Fragment>;
+  });
+};
+
+const MessageContent: React.FC<{ content: string }> = ({ content }) => (
+  <div className="chat-message__content">
+    {content.split('\n').map((line, index) => (
+      line.trim()
+        ? <p key={`${line}-${index}`}>{formatInlineContent(line)}</p>
+        : <div className="chat-message__spacer" key={`spacer-${index}`} aria-hidden="true" />
+    ))}
+  </div>
+);
+
+export const ChatPanel: React.FC<ChatPanelProps> = ({ documents, onOpenLibrary }) => {
+  const [messages, setMessages] = useState<ChatMessage[]>(() => [
     {
       id: 'welcome',
       role: 'assistant',
-      content: '👋 **Chào bạn đến với Trạm Hỏi Đáp AI RAG (Milestone 2 & 3)!**\n\nHệ thống đã nạp thành công các đề thi & tài liệu Toán, Lý, Hóa (như **`e1b1.pdf` - Kĩ năng tìm khoảng cách**). Bạn hãy chọn một gợi ý bên dưới hoặc gõ câu hỏi bất kỳ để AI phân tích và trích dẫn trực tiếp từ trang đề thi nhé!',
+      content: '**Chào bạn, mình là StudyRAG.**\n\nMình sẽ tìm đúng đoạn trong tài liệu của bạn, rồi trả lời kèm nguồn và số trang để bạn kiểm tra lại.',
       timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-      provider: 'NVIDIA NIM / Gemini'
+      provider: 'StudyRAG'
     }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedDocId, setSelectedDocId] = useState<string>('');
+  const [selectedDocId, setSelectedDocId] = useState('');
   const [activeCitation, setActiveCitation] = useState<CitationItem | null>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const previousMessageCountRef = useRef(messages.length);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  const searchableDocuments = documents.filter((document) => document.status === undefined || document.status === 'ready');
+  const hasSearchableDocuments = searchableDocuments.length > 0;
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, isLoading]);
+    const isNewMessage = messages.length > previousMessageCountRef.current;
+    const shouldFollowConversation = isNewMessage || isLoading;
+    const container = messagesContainerRef.current;
 
-  const samplePrompts = [
-    "Tính khoảng cách từ A đến (SBC) trong Ví dụ 1 trang 1",
-    "Tóm tắt tính chất của tam diện vuông trong Lưu ý 2 trang 3",
-    "Đáp án và hướng giải câu 3 phần Bài tập rèn luyện trang 4",
-    "Phương pháp tìm khoảng cách từ trọng tâm G đến mặt bên trang 2"
-  ];
+    if (container && shouldFollowConversation) {
+      container.scrollTop = container.scrollHeight;
+    }
+
+    previousMessageCountRef.current = messages.length;
+  }, [isLoading, messages.length]);
 
   const handleSend = async (queryText?: string) => {
-    const textToSend = queryText || input;
-    if (!textToSend.trim() || isLoading) return;
+    const textToSend = (queryText || input).trim();
+    if (!textToSend || isLoading || !hasSearchableDocuments) return;
 
-    const userMsg: ChatMessage = {
+    const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
       content: textToSend,
       timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
     };
 
-    setMessages(prev => [...prev, userMsg]);
+    setMessages((currentMessages) => [...currentMessages, userMessage]);
     if (!queryText) setInput('');
     setIsLoading(true);
     setActiveCitation(null);
@@ -59,20 +105,21 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ documents }) => {
     setIsLoading(false);
 
     if (error || !data) {
-      setMessages(prev => [
-        ...prev,
+      setMessages((currentMessages) => [
+        ...currentMessages,
         {
-          id: `err-${Date.now()}`,
+          id: `error-${Date.now()}`,
           role: 'assistant',
-          content: `⚠️ **Lỗi kết nối hoặc xử lý truy vấn RAG:** ${error || 'Không nhận được phản hồi'}\n\n*Vui lòng kiểm tra lại cấu hình API Key (NVIDIA / Gemini) hoặc máy chủ Render.*`,
-          timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+          content: `**Không thể xử lý câu hỏi lúc này.**\n\n${error || 'Không nhận được phản hồi từ máy chủ.'} Hãy thử lại sau ít phút.`,
+          timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+          provider: 'StudyRAG'
         }
       ]);
       return;
     }
 
-    const aiMsg: ChatMessage = {
-      id: `ai-${Date.now()}`,
+    const assistantMessage: ChatMessage = {
+      id: `assistant-${Date.now()}`,
       role: 'assistant',
       content: data.answer,
       citations: data.citations || [],
@@ -82,410 +129,199 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ documents }) => {
       timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
     };
 
-    setMessages(prev => [...prev, aiMsg]);
+    setMessages((currentMessages) => [...currentMessages, assistantMessage]);
   };
 
   return (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: activeCitation ? '1fr 340px' : '1fr',
-      gap: '1.5rem',
-      maxWidth: '1300px',
-      margin: '0 auto',
-      minHeight: '680px',
-      transition: 'grid-template-columns 0.3s ease'
-    }}>
-      {/* Khung Chat chính */}
-      <div style={{
-        background: 'var(--color-surface)',
-        border: '1px solid var(--color-border)',
-        borderRadius: '20px',
-        display: 'flex',
-        flexDirection: 'column',
-        boxShadow: '0 20px 45px rgba(0, 0, 0, 0.4)',
-        overflow: 'hidden'
-      }}>
-        {/* Header khung chat */}
-        <div style={{
-          padding: '1.2rem 1.8rem',
-          borderBottom: '1px solid var(--color-border)',
-          background: 'rgba(255, 255, 255, 0.02)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '1rem'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-            <div style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '12px',
-              background: 'linear-gradient(135deg, var(--color-primary), #4f46e5)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 4px 15px rgba(99, 102, 241, 0.3)'
-            }}>
-              <Sparkles size={22} color="#fff" />
-            </div>
+    <section
+      className={`rag-workspace${activeCitation ? ' rag-workspace--with-citation' : ''}`}
+      aria-labelledby="chat-title"
+    >
+      <div className="chat-shell">
+        <div className="chat-shell__header">
+          <div className="chat-identity">
+            <span className="chat-identity__mark" aria-hidden="true">
+              <Sparkles size={21} />
+            </span>
             <div>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                Trợ Lý RAG Lớp 12 (Toán • Lý • Hóa)
-                <span style={{ fontSize: '0.75rem', background: 'rgba(16, 185, 129, 0.15)', color: 'var(--color-success)', padding: '2px 8px', borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>Milestone 2 & 3 Active</span>
-              </h3>
-              <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)', margin: 0 }}>
-                Hệ thống truy xuất ngữ cảnh (Retrieval) + Suy luận có trích dẫn (Grounded AI)
-              </p>
+              <span className="chat-identity__eyebrow">Không gian học tập có kiểm chứng</span>
+              <h2 id="chat-title">Hỏi bài cùng StudyRAG</h2>
+              <p>Nhận lời giải rõ ràng, kèm đoạn tài liệu và số trang liên quan.</p>
             </div>
           </div>
 
-          {/* Lọc theo tài liệu */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <BookOpen size={16} color="var(--color-accent)" />
+          <label className="document-filter">
+            <span><BookOpen size={15} /> Phạm vi tìm kiếm</span>
             <select
               value={selectedDocId}
-              onChange={(e) => setSelectedDocId(e.target.value)}
-              style={{
-                background: 'rgba(15, 23, 42, 0.8)',
-                border: '1px solid var(--color-border)',
-                color: '#fff',
-                padding: '0.45rem 0.9rem',
-                borderRadius: '10px',
-                fontSize: '0.88rem',
-                outline: 'none',
-                cursor: 'pointer'
-              }}
+              onChange={(event) => setSelectedDocId(event.target.value)}
+              disabled={!hasSearchableDocuments}
             >
-              <option value="">📚 Tìm kiếm trong TẤT CẢ đề thi ({documents.length} tài liệu)</option>
-              {documents.map((doc: any) => (
-                <option key={doc.id} value={doc.id}>
-                  📄 {doc.filename || doc.title} ({doc.subject || 'Đề thi'})
+              <option value="">Tất cả tài liệu ({searchableDocuments.length})</option>
+              {searchableDocuments.map((document) => (
+                <option key={document.id} value={document.id}>
+                  {document.filename || document.title || 'Tài liệu chưa đặt tên'}
+                  {document.subject ? ` · ${document.subject}` : ''}
                 </option>
               ))}
             </select>
+          </label>
+        </div>
+
+        {hasSearchableDocuments ? (
+          <div className="prompt-library" aria-label="Câu hỏi gợi ý">
+            <span className="prompt-library__label">Thử hỏi nhanh</span>
+            <div className="prompt-library__list">
+              {samplePrompts.map((prompt) => (
+                <button
+                  type="button"
+                  key={prompt}
+                  onClick={() => handleSend(prompt)}
+                  disabled={isLoading}
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="empty-library-banner" role="status">
+            <div className="empty-library-banner__icon" aria-hidden="true"><BookOpen size={20} /></div>
+            <div>
+              <strong>Chưa có tài liệu để AI tra cứu</strong>
+              <p>Tải PDF vào thư viện trước để StudyRAG có nguồn trả lời chính xác.</p>
+            </div>
+            <button type="button" onClick={onOpenLibrary}>Tải tài liệu</button>
+          </div>
+        )}
 
-        {/* Gợi ý nhanh */}
-        <div style={{
-          padding: '0.9rem 1.8rem',
-          background: 'rgba(99, 102, 241, 0.05)',
-          borderBottom: '1px solid rgba(99, 102, 241, 0.15)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.8rem',
-          overflowX: 'auto',
-          whiteSpace: 'nowrap'
-        }}>
-          <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-primary-light)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-            💡 Gợi ý nhanh:
-          </span>
-          {samplePrompts.map((p, idx) => (
-            <button
-              key={idx}
-              onClick={() => handleSend(p)}
-              disabled={isLoading}
-              style={{
-                background: 'rgba(30, 41, 59, 0.8)',
-                border: '1px solid var(--color-border)',
-                color: 'var(--color-text)',
-                padding: '0.35rem 0.85rem',
-                borderRadius: '20px',
-                fontSize: '0.82rem',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                flexShrink: 0
-              }}
-            >
-              {p}
-            </button>
-          ))}
-        </div>
+        <div className="chat-messages" ref={messagesContainerRef} aria-live="polite">
+          {messages.map((message) => {
+            const isAssistant = message.role === 'assistant';
 
-        {/* Danh sách tin nhắn */}
-        <div style={{
-          flex: 1,
-          padding: '1.8rem',
-          overflowY: 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '1.5rem',
-          maxHeight: '520px'
-        }}>
-          {messages.map((msg) => (
-            <div key={msg.id} style={{
-              display: 'flex',
-              gap: '1rem',
-              alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-              maxWidth: '85%'
-            }}>
-              {msg.role === 'assistant' && (
-                <div style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '10px',
-                  background: 'linear-gradient(135deg, #10b981, #059669)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                  boxShadow: '0 2px 10px rgba(16, 185, 129, 0.3)'
-                }}>
-                  <Bot size={20} color="#fff" />
+            return (
+              <article
+                className={`chat-message chat-message--${message.role}`}
+                key={message.id}
+              >
+                <div className="chat-message__avatar" aria-hidden="true">
+                  {isAssistant ? <Bot size={19} /> : <User size={18} />}
                 </div>
-              )}
-
-              <div style={{
-                background: msg.role === 'user'
-                  ? 'linear-gradient(135deg, var(--color-primary), #4f46e5)'
-                  : 'rgba(30, 41, 59, 0.7)',
-                border: msg.role === 'user' ? 'none' : '1px solid var(--color-border)',
-                padding: '1.1rem 1.4rem',
-                borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                color: '#fff',
-                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.15)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.8rem'
-              }}>
-                <div style={{
-                  fontSize: '0.96rem',
-                  lineHeight: 1.65,
-                  whiteSpace: 'pre-wrap'
-                }}>
-                  {msg.content}
-                </div>
-
-                {/* Danh sách trích dẫn Citations */}
-                {msg.citations && msg.citations.length > 0 && (
-                  <div style={{
-                    marginTop: '0.5rem',
-                    paddingTop: '0.8rem',
-                    borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.5rem'
-                  }}>
-                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-accent)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <ShieldCheck size={14} /> Nguồn trích dẫn kiểm chứng (Grounded Citations):
-                    </span>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                      {msg.citations.map((cite, i) => (
-                        <button
-                          key={i}
-                          onClick={() => setActiveCitation(cite)}
-                          style={{
-                            background: activeCitation?.index === cite.index ? 'var(--color-primary)' : 'rgba(15, 23, 42, 0.8)',
-                            border: '1px solid rgba(99, 102, 241, 0.4)',
-                            color: '#fff',
-                            padding: '0.35rem 0.7rem',
-                            borderRadius: '8px',
-                            fontSize: '0.8rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.4rem',
-                            transition: 'all 0.2s ease'
-                          }}
-                        >
-                          <FileText size={13} color="var(--color-accent)" />
-                          <span>[{cite.index}] Trang {cite.page} ({cite.document_name})</span>
-                          <span style={{ fontSize: '0.72rem', background: 'rgba(255, 255, 255, 0.15)', padding: '1px 5px', borderRadius: '4px' }}>
-                            {Math.round(cite.score * 100)}%
-                          </span>
-                        </button>
-                      ))}
-                    </div>
+                <div className="chat-message__body">
+                  <div className="chat-message__label">
+                    {isAssistant ? 'StudyRAG' : 'Bạn'}
                   </div>
-                )}
+                  <div className="chat-message__bubble">
+                    <MessageContent content={message.content} />
 
-                {/* Telemetry info */}
-                {msg.role === 'assistant' && (
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    fontSize: '0.75rem',
-                    color: 'var(--color-muted)',
-                    marginTop: '0.2rem'
-                  }}>
-                    <span>⏱️ {msg.timestamp}</span>
-                    {msg.provider && (
-                      <span style={{ background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '6px' }}>
-                        ⚡ {msg.provider.toUpperCase()} ({msg.model}) • {msg.latencyMs}ms
-                      </span>
+                    {message.citations && message.citations.length > 0 && (
+                      <div className="citation-list">
+                        <span className="citation-list__title"><ShieldCheck size={15} /> Nguồn đã tìm thấy</span>
+                        <div className="citation-list__items">
+                          {message.citations.map((citation) => (
+                            <button
+                              className={activeCitation?.index === citation.index ? 'is-active' : ''}
+                              key={`${message.id}-${citation.index}`}
+                              type="button"
+                              onClick={() => setActiveCitation(citation)}
+                            >
+                              <FileText size={14} />
+                              <span>Trang {citation.page}</span>
+                              <span className="citation-list__score">{Math.round(citation.score * 100)}%</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     )}
                   </div>
-                )}
-              </div>
-
-              {msg.role === 'user' && (
-                <div style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '10px',
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0
-                }}>
-                  <User size={20} color="#fff" />
+                  <div className="chat-message__meta">
+                    <span>{message.timestamp}</span>
+                    {isAssistant && message.provider && (
+                      <span>{message.provider}{message.model ? ` · ${message.model}` : ''}{message.latencyMs !== undefined ? ` · ${message.latencyMs} ms` : ''}</span>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-          ))}
+              </article>
+            );
+          })}
 
           {isLoading && (
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', padding: '0.5rem 0' }}>
-              <div style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '10px',
-                background: 'linear-gradient(135deg, #10b981, #059669)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 0 15px rgba(16, 185, 129, 0.4)'
-              }}>
-                <Bot size={20} color="#fff" />
+            <article className="chat-message chat-message--assistant chat-message--loading">
+              <div className="chat-message__avatar" aria-hidden="true"><Bot size={19} /></div>
+              <div className="loading-answer">
+                <span className="loading-answer__dots" aria-hidden="true"><i /><i /><i /></span>
+                AI đang đọc tài liệu và đối chiếu nguồn…
               </div>
-              <div style={{
-                background: 'rgba(30, 41, 59, 0.7)',
-                border: '1px solid var(--color-border)',
-                padding: '0.9rem 1.4rem',
-                borderRadius: '18px',
-                color: 'var(--color-accent)',
-                fontSize: '0.92rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.6rem'
-              }}>
-                <Sparkles size={16} className="animate-spin" />
-                <span>AI đang đọc hiểu đề thi & tổng hợp lời giải...</span>
-              </div>
-            </div>
+            </article>
           )}
-          <div ref={messagesEndRef} />
         </div>
 
-        {/* Ô nhập liệu Input */}
-        <div style={{
-          padding: '1.2rem 1.8rem',
-          borderTop: '1px solid var(--color-border)',
-          background: 'rgba(15, 23, 42, 0.6)',
-          display: 'flex',
-          gap: '1rem',
-          alignItems: 'center'
-        }}>
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="💬 Đặt câu hỏi về đề thi Toán, Lý, Hóa của bạn (Ví dụ: Tính khoảng cách từ A đến (SBC)...)"
-            disabled={isLoading}
-            style={{
-              flex: 1,
-              background: 'rgba(30, 41, 59, 0.8)',
-              border: '1px solid var(--color-border)',
-              borderRadius: '14px',
-              padding: '0.95rem 1.3rem',
-              color: '#fff',
-              fontSize: '0.96rem',
-              outline: 'none',
-              transition: 'border-color 0.2s ease'
-            }}
-          />
+        <form
+          className="chat-composer"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void handleSend();
+          }}
+        >
+          <div className="chat-composer__field">
+            <label className="sr-only" htmlFor="rag-question">Câu hỏi cho StudyRAG</label>
+            <textarea
+              id="rag-question"
+              rows={1}
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault();
+                  void handleSend();
+                }
+              }}
+              placeholder={hasSearchableDocuments
+                ? 'Hỏi về nội dung trong tài liệu của bạn…'
+                : 'Tải tài liệu để bắt đầu đặt câu hỏi…'}
+              disabled={isLoading || !hasSearchableDocuments}
+            />
+            <span>Enter để gửi · Shift + Enter để xuống dòng</span>
+          </div>
           <button
-            onClick={() => handleSend()}
-            disabled={isLoading || !input.trim()}
-            style={{
-              background: isLoading || !input.trim() ? 'rgba(99, 102, 241, 0.4)' : 'linear-gradient(135deg, var(--color-primary), #4f46e5)',
-              border: 'none',
-              borderRadius: '14px',
-              padding: '0.95rem 1.6rem',
-              color: '#fff',
-              fontWeight: 600,
-              cursor: isLoading || !input.trim() ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              boxShadow: isLoading || !input.trim() ? 'none' : '0 5px 20px rgba(99, 102, 241, 0.3)',
-              transition: 'all 0.2s ease'
-            }}
+            className="chat-composer__send"
+            type="submit"
+            disabled={isLoading || !input.trim() || !hasSearchableDocuments}
           >
-            <span>Gửi</span>
-            <Send size={18} />
+            <span>Gửi câu hỏi</span>
+            <Send size={17} />
           </button>
-        </div>
+        </form>
       </div>
 
-      {/* Bảng xem chi tiết đoạn trích dẫn Citation Panel */}
       {activeCitation && (
-        <div style={{
-          background: 'var(--color-surface)',
-          border: '1px solid rgba(56, 189, 248, 0.4)',
-          borderRadius: '20px',
-          padding: '1.5rem',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '1.2rem',
-          boxShadow: '0 20px 45px rgba(0, 0, 0, 0.4)',
-          height: 'fit-content'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.8rem' }}>
-            <h4 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--color-accent)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <FileText size={18} /> Chi Tiết Trích Dẫn [{activeCitation.index}]
-            </h4>
+        <aside className="citation-panel" aria-label={`Chi tiết nguồn trang ${activeCitation.page}`}>
+          <div className="citation-panel__header">
+            <div>
+              <span>Nguồn tham khảo</span>
+              <h3>Trang {activeCitation.page}</h3>
+            </div>
             <button
+              className="icon-button"
+              type="button"
+              aria-label="Đóng chi tiết nguồn"
               onClick={() => setActiveCitation(null)}
-              style={{ background: 'transparent', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: '1.1rem', fontWeight: 700 }}
             >
-              ✕
+              <X size={17} />
             </button>
           </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.88rem', color: 'var(--color-text)' }}>
-            <div>
-              <strong style={{ color: 'var(--color-muted)' }}>📄 Tài liệu nguồn:</strong>
-              <div style={{ color: '#fff', fontWeight: 600, marginTop: '2px' }}>{activeCitation.document_name}</div>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <div>
-                <strong style={{ color: 'var(--color-muted)' }}>📌 Vị trí trang:</strong>
-                <span style={{ color: 'var(--color-accent)', fontWeight: 700, marginLeft: '6px' }}>Trang {activeCitation.page}</span>
-              </div>
-              <div>
-                <strong style={{ color: 'var(--color-muted)' }}>🎯 Độ liên quan:</strong>
-                <span style={{ color: 'var(--color-success)', fontWeight: 700, marginLeft: '6px' }}>{Math.round(activeCitation.score * 100)}%</span>
-              </div>
-            </div>
+          <div className="citation-panel__source">
+            <FileText size={17} />
+            <span>{activeCitation.document_name}</span>
           </div>
-
-          <div style={{
-            background: 'rgba(15, 23, 42, 0.9)',
-            border: '1px solid var(--color-border)',
-            borderRadius: '12px',
-            padding: '1rem',
-            fontSize: '0.9rem',
-            lineHeight: 1.6,
-            color: '#e2e8f0',
-            maxHeight: '340px',
-            overflowY: 'auto',
-            whiteSpace: 'pre-wrap',
-            fontFamily: 'monospace'
-          }}>
-            {activeCitation.text}
+          <div className="citation-panel__score">
+            <span>Độ liên quan</span>
+            <strong>{Math.round(activeCitation.score * 100)}%</strong>
           </div>
-
-          <div style={{ fontSize: '0.78rem', color: 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <CheckCircle2 size={14} color="var(--color-success)" />
-            <span>Xác thực bởi RAG Groundedness Checker</span>
-          </div>
-        </div>
+          <p className="citation-panel__excerpt">{activeCitation.text}</p>
+          <div className="citation-panel__verified"><CheckCircle2 size={15} /> Có thể đối chiếu trong tài liệu gốc</div>
+        </aside>
       )}
-    </div>
+    </section>
   );
 };
