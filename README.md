@@ -1,66 +1,65 @@
-# StudyRAG V2 — Trợ lý ôn thi từ tài liệu cá nhân
+# StudyRAG V2 — Trợ lý ôn thi từ tài liệu riêng tư
 
-StudyRAG V2 là hệ thống hỏi đáp (Retrieval-Augmented Generation) chuyên biệt cho học sinh ôn thi lớp 12 môn Toán, Vật lý, và Hóa học. Hệ thống theo nguyên tắc **local-first**, kiểm chứng retrieval trước khi deploy cloud, và có giao diện **Fantasy (Thư viện thiên văn)** lung linh hiện đại.
+StudyRAG là ứng dụng hỏi đáp từ PDF cho học sinh lớp 12. Mỗi người dùng đăng
+nhập qua Supabase, xác nhận email hoặc Google, rồi chỉ có thể xem, tải lên và
+hỏi từ thư viện PDF riêng của mình.
 
-## Kiến trúc Monorepo
+## Kiến trúc
 
-- **Frontend (`frontend/`)**: React + Vite + TypeScript, CSS Variables & CSS Modules theo phong cách Fantasy Astronomical Library.
-- **Backend (`backend/`)**: Python 3.11+ + FastAPI, SQLite + SQLModel, ChromaDB local vector store.
-- **Data (`data/`)**: Chứa tài liệu PDF thô (`raw/`), dữ liệu trích xuất JSONL (`processed/`) và bộ kiểm thử (`evaluations/`).
+- `frontend/`: React, Vite và Supabase Auth. Browser chỉ nhận các biến
+  `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_API_BASE_URL`.
+- `backend/`: FastAPI trên Render, xác minh JWT Supabase và truy cập Postgres/
+  private Storage bằng service-role key ở phía server.
+- `supabase/`: migration cho bucket PDF private, owner-scoped metadata và RLS.
 
----
+## Chạy local
 
-## Bắt đầu nhanh (Local Development)
+Tạo một `.env` ở thư mục gốc (hoặc export các biến trong shell) với giá trị từ
+Supabase của bạn. `make dev` dừng ngay nếu thiếu biến bắt buộc, để không khởi
+chạy một bản không thể đăng nhập. Ba biến đầu là biến public cho Vercel/browser;
+phần còn lại là secret của Render/backend:
 
-### 1. Dùng Makefile & Docker Compose (Khuyến nghị)
+```bash
+VITE_SUPABASE_URL=https://<project-ref>.supabase.co
+VITE_SUPABASE_ANON_KEY=<supabase-anon-key>
+VITE_API_BASE_URL=http://localhost:8000/api/v1
 
-Chạy song song cả backend và frontend qua Docker:
+# Render/backend only — never expose these in Vercel or the browser.
+SUPABASE_URL=https://<project-ref>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<service-role-secret>
+SUPABASE_JWT_ISSUER=https://<project-ref>.supabase.co/auth/v1
+SUPABASE_JWT_AUDIENCE=authenticated
+DATABASE_URL=postgresql://<database-user>:<database-password>@<database-host>:5432/postgres
+FRONTEND_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+```
+
+Sau đó chạy:
+
 ```bash
 make dev
 ```
-Truy cập Frontend: [http://localhost:5173](http://localhost:5173)  
-Truy cập Backend API Docs (Swagger UI): [http://localhost:8000/docs](http://localhost:8000/docs)
 
----
+Frontend: [http://localhost:5173](http://localhost:5173) · API docs:
+[http://localhost:8000/docs](http://localhost:8000/docs)
 
-### 2. Chạy thủ công trên máy (Chân trần)
+Có thể xem tên và mục đích từng biến tại
+[frontend/.env.example](frontend/.env.example) và
+[backend/.env.example](backend/.env.example). Không copy
+`SUPABASE_SERVICE_ROLE_KEY`, password database, hoặc JWT secret vào frontend.
 
-#### Setup & Chạy Backend
-```bash
-cd backend
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e '.[dev]'
-uvicorn app.main:app --reload --port 8000
-```
+## Kiểm thử
 
-#### Setup & Chạy Frontend
-Mở một terminal khác:
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
----
-
-## Kiểm thử tự động (Testing)
-
-Chạy test toàn bộ dự án:
 ```bash
 make test
 ```
 
-Hoặc chạy từng module:
-- Backend: `cd backend && pytest -v`
-- Frontend: `cd frontend && npm test -- --run`
+Hoặc chạy riêng:
 
----
+- Backend: `cd backend && .venv/bin/pytest -q`
+- Frontend: `cd frontend && env NODE_ENV=test npm test -- --run && npm run build`
 
-## Tình trạng Milestone
-- [x] **Milestone 0**: Scaffold monorepo & Fantasy UI Foundation (`/health`, `/ready` status).
-- [ ] **Milestone 1**: Document ingestion (Upload, validation, PDF text extraction, chunking).
-- [ ] **Milestone 2**: Vector retrieval (ChromaDB, Sentence Transformers embedding, search API).
-- [ ] **Milestone 3**: Grounded answer generation (LLM provider, context builder, citations).
-- [ ] **Milestone 4**: Quality assurance & evaluations.
-- [ ] **Milestone 5**: AWS production deployment.
+## Triển khai
+
+[docs/deployment-auth.md](docs/deployment-auth.md) là checklist Supabase,
+Vercel và Render: xác nhận email bắt buộc, Google OAuth, biến môi trường,
+origin CORS và kiểm tra cách ly hai người dùng trước khi công bố URL.

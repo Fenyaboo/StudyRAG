@@ -1,24 +1,37 @@
 import hashlib
+import logging
 import uuid
-from datetime import datetime
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, status
-from fastapi.responses import JSONResponse
-from typing import List, Optional
+from typing import Annotated, List, Optional
 
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status
+from fastapi.responses import JSONResponse
+
+from app.core.auth import CurrentUser, get_current_user
 from app.core.config import settings
 from app.schemas.document import DocumentResponse, IngestStatusResponse
 from app.services.pdf_parser import parse_pdf_bytes, OCRRequiredException, PDFParseException
 from app.services.chunker import process_document_chunks
+from app.services.private_storage import PrivateStorage
 from app.db.supabase import storage_repo
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+private_storage = PrivateStorage()
+
+
+def _delete_uploaded_object(storage_path: str) -> None:
+    try:
+        private_storage.delete_pdf(storage_path)
+    except Exception:
+        logger.exception("Không thể dọn object Storage sau khi ghi tài liệu thất bại.")
 
 @router.post("/ingest", response_model=IngestStatusResponse, status_code=status.HTTP_201_CREATED)
 async def ingest_document(
+    current_user: Annotated[CurrentUser, Depends(get_current_user)],
     file: UploadFile = File(...),
     title: Optional[str] = Form(None),
     subject: Optional[str] = Form("Chung"),
-    doc_type: Optional[str] = Form("exam")
+    doc_type: Optional[str] = Form("exam"),
 ):
     """
     Endpoint nạp tài liệu PDF đề thi / sách giáo khoa (Milestone 1):
@@ -45,7 +58,7 @@ async def ingest_document(
 
     # SHA-256 deduplication
     file_hash = hashlib.sha256(pdf_bytes).hexdigest()
-    existing_doc = storage_repo.get_document_by_hash(file_hash)
+    existing_doc = storage_repo.get_document_by_hash(current_user.id, file_hash)
     if existing_doc and existing_doc.get("status") == "ready":
         return JSONResponse(
             status_code=status.HTTP_409_CONFLICT,
@@ -64,20 +77,30 @@ async def ingest_document(
     try:
         parsed = parse_pdf_bytes(pdf_bytes, filename=file.filename)
     except OCRRequiredException as ocr_err:
+        try:
+            storage_path = private_storage.put_pdf(
+                current_user.id, document_id, file.filename, pdf_bytes
+            )
+            storage_repo.save_document_metadata({
+                "id": document_id,
+                "owner_id": current_user.id,
+                "storage_path": storage_path,
+                "title": doc_title,
+                "filename": file.filename,
+                "file_hash": file_hash,
+                "file_size_bytes": file_size,
+                "subject": subject,
+                "doc_type": doc_type,
+                "status": "ocr_required",
+                "page_count": ocr_err.details.get("page_count", 0),
+                "chunk_count": 0,
+                "error_message": ocr_err.message,
+            })
+        except Exception:
+            if "storage_path" in locals():
+                _delete_uploaded_object(storage_path)
+            raise
         # Ghi nhận trạng thái OCR_REQUIRED
-        storage_repo.save_document_metadata({
-            "id": document_id,
-            "title": doc_title,
-            "filename": file.filename,
-            "file_hash": file_hash,
-            "file_size_bytes": file_size,
-            "subject": subject,
-            "doc_type": doc_type,
-            "status": "ocr_required",
-            "page_count": ocr_err.details.get("page_count", 0),
-            "chunk_count": 0,
-            "error_message": ocr_err.message
-        })
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content={"error": {"code": "OCR_REQUIRED", "message": ocr_err.message, "details": ocr_err.details}}
@@ -94,6 +117,7 @@ async def ingest_document(
     # Lưu dữ liệu vào storage
     doc_meta = {
         "id": document_id,
+        "owner_id": current_user.id,
         "title": doc_title,
         "filename": file.filename,
         "file_hash": file_hash,
@@ -106,8 +130,18 @@ async def ingest_document(
         "error_message": None
     }
 
-    storage_repo.save_document_metadata(doc_meta)
-    storage_repo.save_chunks(document_id, chunks)
+    storage_path = private_storage.put_pdf(current_user.id, document_id, file.filename, pdf_bytes)
+    doc_meta["storage_path"] = storage_path
+    metadata_saved = False
+    try:
+        storage_repo.save_document_metadata(doc_meta)
+        metadata_saved = True
+        storage_repo.save_chunks(document_id, chunks)
+    except Exception:
+        if metadata_saved:
+            storage_repo.delete_document(current_user.id, document_id)
+        _delete_uploaded_object(storage_path)
+        raise
 
     return IngestStatusResponse(
         document_id=document_id,
@@ -120,14 +154,42 @@ async def ingest_document(
     )
 
 @router.get("/documents", response_model=List[DocumentResponse])
-async def get_documents():
+async def get_documents(current_user: Annotated[CurrentUser, Depends(get_current_user)]):
     """Lấy danh sách toàn bộ tài liệu đã nạp trong thư viện."""
-    return storage_repo.list_documents()
+    return storage_repo.list_documents(current_user.id)
 
 @router.delete("/documents/{document_id}", status_code=status.HTTP_200_OK)
-async def delete_document(document_id: str):
+async def delete_document(
+    document_id: str,
+    current_user: Annotated[CurrentUser, Depends(get_current_user)],
+):
     """Xóa tài liệu và toàn bộ đoạn văn bản (chunks) khỏi database."""
-    success = storage_repo.delete_document(document_id)
-    if not success:
+    document = next(
+        (document for document in storage_repo.list_documents(current_user.id) if document.get("id") == document_id),
+        None,
+    )
+    if not document:
         raise HTTPException(status_code=404, detail="Không tìm thấy tài liệu.")
+
+    try:
+        # Keep a server-side copy so a metadata failure cannot leave a visible
+        # document record pointing to an irreversibly deleted private object.
+        original_pdf = private_storage.download_pdf(document["storage_path"])
+        private_storage.delete_pdf(document["storage_path"])
+    except Exception as error:
+        logger.error("Không thể đọc/xóa object Storage cho tài liệu %s: %s", document_id, error)
+        raise HTTPException(status_code=500, detail="Không thể xóa tài liệu.") from error
+
+    try:
+        success = storage_repo.delete_document(current_user.id, document_id)
+        if not success:
+            raise RuntimeError("Document metadata was not deleted.")
+    except Exception as error:
+        try:
+            private_storage.restore_pdf(document["storage_path"], original_pdf)
+        except Exception:
+            logger.exception("Không thể khôi phục object Storage sau khi xóa metadata thất bại: %s", document_id)
+        logger.error("Không thể xóa metadata cho tài liệu %s: %s", document_id, error)
+        raise HTTPException(status_code=500, detail="Không thể xóa tài liệu.") from error
+
     return {"message": "Đã xóa tài liệu và toàn bộ vector/chunks liên quan thành công."}

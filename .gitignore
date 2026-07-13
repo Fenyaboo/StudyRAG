@@ -93,3 +93,4 @@ data/processed/*
 !data/processed/.gitkeep
 data/chroma/
 *.db
+.superpowers/

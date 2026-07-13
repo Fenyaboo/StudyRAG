@@ -80,21 +80,26 @@ class StorageRepository:
     """
     Storage Engine cho StudyRAG:
     - Nếu sử dụng Supabase (VECTOR_STORE_TYPE == 'supabase_pgvector' hoặc DATABASE_URL có postgresql):
-      Lưu trữ trên cloud PostgreSQL với pgvector.
+      chỉ dùng schema versioned trên cloud PostgreSQL. Không tự tạo bảng hay
+      chuyển sang JSONL nếu database không sẵn sàng.
     - Nếu sử dụng Local (sqlite_chroma):
       Lưu metadata/chunks trên JSONL và truy xuất lexical có chuẩn hóa tiếng Việt.
     """
     def __init__(self):
         self.storage_type = settings.VECTOR_STORE_TYPE
         self.is_postgres = "postgres" in settings.DATABASE_URL.lower() or self.storage_type == "supabase_pgvector"
+        self._postgres_ready = not self.is_postgres
+        self._postgres_error: Optional[str] = None
         
-        # Đảm bảo thư mục lưu trữ local tồn tại
-        os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-        os.makedirs(settings.PROCESSED_DIR, exist_ok=True)
         self.local_registry_file = os.path.join(settings.PROCESSED_DIR, "documents_registry.json")
-        if not os.path.exists(self.local_registry_file):
-            with open(self.local_registry_file, "w", encoding="utf-8") as f:
-                json.dump([], f)
+        if not self.is_postgres:
+            # JSONL is an explicit local-development mode, never a production
+            # contingency for a configured PostgreSQL/Supabase deployment.
+            os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+            os.makedirs(settings.PROCESSED_DIR, exist_ok=True)
+            if not os.path.exists(self.local_registry_file):
+                with open(self.local_registry_file, "w", encoding="utf-8") as f:
+                    json.dump([], f)
 
     def _get_pg_connection(self):
         """Khởi tạo kết nối psycopg2 tới Supabase/PostgreSQL nếu khả dụng."""
@@ -107,64 +112,115 @@ class StorageRepository:
         except Exception as e:
             raise RuntimeError(f"Lỗi kết nối Supabase/PostgreSQL: {str(e)}")
 
-    def init_db(self):
-        """Kiểm tra và khởi tạo bảng trên Supabase hoặc Local."""
-        if self.is_postgres:
-            try:
-                conn = self._get_pg_connection()
-                cur = conn.cursor()
-                cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS documents (
-                        id TEXT PRIMARY KEY,
-                        title TEXT NOT NULL,
-                        filename TEXT NOT NULL,
-                        file_hash TEXT UNIQUE NOT NULL,
-                        file_size_bytes INT NOT NULL,
-                        subject TEXT,
-                        doc_type TEXT,
-                        status TEXT NOT NULL,
-                        page_count INT DEFAULT 0,
-                        chunk_count INT DEFAULT 0,
-                        error_message TEXT,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    );
-                """)
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS document_chunks (
-                        id TEXT PRIMARY KEY,
-                        document_id TEXT REFERENCES documents(id) ON DELETE CASCADE,
-                        content TEXT NOT NULL,
-                        metadata JSONB NOT NULL,
-                        embedding vector(768)
-                    );
-                """)
-                conn.commit()
-                cur.close()
-                conn.close()
-            except Exception as e:
-                print(f"[CẢNH BÁO] Không thể khởi tạo bảng Supabase pgvector: {str(e)}. Chuyển về Local SQLite/JSONL.")
-                self.is_postgres = False
+    @property
+    def is_ready(self) -> bool:
+        """Whether this repository may safely serve the configured backend mode."""
+        return self._postgres_ready if self.is_postgres else True
 
-    def get_document_by_hash(self, file_hash: str) -> Optional[Dict[str, Any]]:
+    @property
+    def readiness_error(self) -> Optional[str]:
+        return self._postgres_error
+
+    def _mark_postgres_failure(self, error: Exception) -> RuntimeError:
+        message = (
+            "Supabase/PostgreSQL database operation failed; local JSONL fallback is disabled. "
+            f"Apply and verify supabase/migrations/20260713_auth_private_library.sql, then restore database connectivity. ({error})"
+        )
+        self._postgres_ready = False
+        self._postgres_error = message
+        return RuntimeError(message)
+
+    def _require_postgres_ready(self) -> None:
+        if self.is_postgres and not self._postgres_ready:
+            raise RuntimeError(
+                self._postgres_error
+                or "Supabase/PostgreSQL is not ready; apply the private-library migration before serving documents."
+            )
+
+    def init_db(self):
+        """Validate the versioned private schema without ever mutating production."""
+        if not self.is_postgres:
+            return
+
+        try:
+            conn = self._get_pg_connection()
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT
+                    to_regclass('public.documents') IS NOT NULL AS documents_table,
+                    to_regclass('public.document_chunks') IS NOT NULL AS document_chunks_table,
+                    EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public' AND table_name = 'documents' AND column_name = 'owner_id'
+                    ) AS owner_id_column,
+                    EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public' AND table_name = 'documents' AND column_name = 'storage_path'
+                    ) AS storage_path_column,
+                    EXISTS (
+                        SELECT 1 FROM pg_class c
+                        JOIN pg_namespace n ON n.oid = c.relnamespace
+                        WHERE n.nspname = 'public' AND c.relname = 'documents' AND c.relrowsecurity
+                    ) AS documents_rls,
+                    EXISTS (
+                        SELECT 1 FROM pg_class c
+                        JOIN pg_namespace n ON n.oid = c.relnamespace
+                        WHERE n.nspname = 'public' AND c.relname = 'document_chunks' AND c.relrowsecurity
+                    ) AS document_chunks_rls,
+                    EXISTS (
+                        SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'documents' AND policyname = 'owner documents'
+                    ) AS owner_documents_policy,
+                    EXISTS (
+                        SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'document_chunks' AND policyname = 'owner document chunks'
+                    ) AS owner_document_chunks_policy,
+                    to_regclass('public.documents_owner_file_hash_key') IS NOT NULL AS owner_file_hash_index,
+                    to_regclass('public.documents_owner_created_at_idx') IS NOT NULL AS owner_created_at_index,
+                    to_regclass('public.document_chunks_document_id_idx') IS NOT NULL AS chunk_document_id_index,
+                    EXISTS (
+                        SELECT 1 FROM storage.buckets WHERE id = 'study-documents' AND public = false
+                    ) AS private_bucket,
+                    EXISTS (
+                        SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'owner study documents'
+                    ) AS owner_study_documents_policy;
+            """)
+            checks = dict(cur.fetchone() or {})
+            cur.close()
+            conn.close()
+            missing = [name for name, is_present in checks.items() if not is_present]
+            if missing:
+                raise RuntimeError("missing " + ", ".join(missing))
+            self._postgres_ready = True
+            self._postgres_error = None
+        except Exception as error:
+            self._postgres_ready = False
+            self._postgres_error = (
+                "Supabase/PostgreSQL is not ready; apply and verify "
+                "supabase/migrations/20260713_auth_private_library.sql. "
+                f"Readiness check failed: {error}"
+            )
+
+    def get_document_by_hash(self, owner_id: str, file_hash: str) -> Optional[Dict[str, Any]]:
         if self.is_postgres:
+            self._require_postgres_ready()
             try:
                 conn = self._get_pg_connection()
                 cur = conn.cursor()
-                cur.execute("SELECT * FROM documents WHERE file_hash = %s;", (file_hash,))
+                cur.execute(
+                    "SELECT * FROM documents WHERE owner_id = %s AND file_hash = %s;",
+                    (owner_id, file_hash),
+                )
                 row = cur.fetchone()
                 cur.close()
                 conn.close()
                 return dict(row) if row else None
-            except Exception:
-                pass
+            except Exception as error:
+                raise self._mark_postgres_failure(error) from error
 
         # Local fallback
         with open(self.local_registry_file, "r", encoding="utf-8") as f:
             docs = json.load(f)
         for doc in docs:
-            if doc.get("file_hash") == file_hash:
+            if doc.get("owner_id") == owner_id and doc.get("file_hash") == file_hash:
                 return doc
         return None
 
@@ -174,12 +230,16 @@ class StorageRepository:
 
         if self.is_postgres:
             try:
+                self._require_postgres_ready()
+            except RuntimeError as error:
+                raise RuntimeError(f"Lưu Supabase thất bại: {error}") from error
+            try:
                 conn = self._get_pg_connection()
                 cur = conn.cursor()
                 cur.execute("""
                     INSERT INTO documents (
-                        id, title, filename, file_hash, file_size_bytes, subject, doc_type, status, page_count, chunk_count, error_message, created_at, updated_at
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        id, owner_id, storage_path, title, filename, file_hash, file_size_bytes, subject, doc_type, status, page_count, chunk_count, error_message, created_at, updated_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (id) DO UPDATE SET
                         status = EXCLUDED.status,
                         page_count = EXCLUDED.page_count,
@@ -187,7 +247,7 @@ class StorageRepository:
                         error_message = EXCLUDED.error_message,
                         updated_at = EXCLUDED.updated_at;
                 """, (
-                    doc_data["id"], doc_data["title"], doc_data["filename"], doc_data["file_hash"],
+                    doc_data["id"], doc_data["owner_id"], doc_data["storage_path"], doc_data["title"], doc_data["filename"], doc_data["file_hash"],
                     doc_data["file_size_bytes"], doc_data["subject"], doc_data["doc_type"], doc_data["status"],
                     doc_data.get("page_count", 0), doc_data.get("chunk_count", 0), doc_data.get("error_message"),
                     doc_data["created_at"], doc_data["updated_at"]
@@ -197,7 +257,8 @@ class StorageRepository:
                 conn.close()
                 return doc_data
             except Exception as e:
-                print(f"[CẢNH BÁO] Lưu Supabase thất bại: {str(e)}. Lưu vào registry local.")
+                failure = self._mark_postgres_failure(e)
+                raise RuntimeError(f"Lưu Supabase thất bại: {failure}") from e
 
         with open(self.local_registry_file, "r", encoding="utf-8") as f:
             docs = json.load(f)
@@ -222,6 +283,10 @@ class StorageRepository:
 
         if self.is_postgres:
             try:
+                self._require_postgres_ready()
+            except RuntimeError as error:
+                raise RuntimeError(f"Lưu chunks Supabase thất bại: {error}") from error
+            try:
                 conn = self._get_pg_connection()
                 cur = conn.cursor()
                 cur.execute("DELETE FROM document_chunks WHERE document_id = %s;", (document_id,))
@@ -235,7 +300,8 @@ class StorageRepository:
                 conn.close()
                 return len(chunks)
             except Exception as e:
-                print(f"[CẢNH BÁO] Lưu chunks Supabase thất bại: {str(e)}. Lưu sang file JSONL local.")
+                failure = self._mark_postgres_failure(e)
+                raise RuntimeError(f"Lưu chunks Supabase thất bại: {failure}") from e
 
         # Local JSONL sink: data/processed/<document_id>.jsonl
         jsonl_path = os.path.join(settings.PROCESSED_DIR, f"{document_id}.jsonl")
@@ -248,12 +314,16 @@ class StorageRepository:
     def search(
         self,
         query_text: str,
+        owner_id: str,
         top_k: int = 5,
         min_score: float = 0.25,
         document_id: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """Tìm các chunks có bằng chứng textual, ưu tiên đúng tài liệu/trang được hỏi."""
         results: List[Dict[str, Any]] = []
+        if self.is_postgres:
+            self._require_postgres_ready()
+
         query_terms, requested_page, requested_question = _query_features(query_text)
         if not query_terms and requested_question is None:
             return []
@@ -263,8 +333,8 @@ class StorageRepository:
             try:
                 conn = self._get_pg_connection()
                 cur = conn.cursor()
-                where_clauses = ["d.status = %s"]
-                params: List[Any] = ["ready"]
+                where_clauses = ["d.status = %s", "d.owner_id = %s"]
+                params: List[Any] = ["ready", owner_id]
                 if document_id:
                     where_clauses.append("c.document_id = %s")
                     params.append(document_id)
@@ -304,12 +374,12 @@ class StorageRepository:
                 results.sort(key=lambda item: (-item["score"], item["page"]))
                 return results[:top_k]
             except Exception as error:
-                print(f"[CẢNH BÁO] Tìm kiếm Supabase lỗi: {str(error)}. Chuyển sang tìm kiếm Local JSONL.")
+                raise self._mark_postgres_failure(error) from error
 
         # 2. Local JSONL. Chỉ đọc chunks thuộc tài liệu đang ở trạng thái ready.
         ready_documents = {
             document["id"]: document
-            for document in self.list_documents()
+            for document in self.list_documents(owner_id)
             if document.get("status") == "ready"
         }
         if not os.path.exists(settings.PROCESSED_DIR):
@@ -351,50 +421,80 @@ class StorageRepository:
         results.sort(key=lambda item: (-item["score"], item["page"]))
         return results[:top_k]
 
-    def list_documents(self) -> List[Dict[str, Any]]:
+    def list_documents(self, owner_id: str) -> List[Dict[str, Any]]:
         if self.is_postgres:
+            self._require_postgres_ready()
             try:
                 conn = self._get_pg_connection()
                 cur = conn.cursor()
-                cur.execute("SELECT * FROM documents ORDER BY created_at DESC;")
+                cur.execute(
+                    "SELECT * FROM documents WHERE owner_id = %s ORDER BY created_at DESC;",
+                    (owner_id,),
+                )
                 rows = cur.fetchall()
                 cur.close()
                 conn.close()
                 return [dict(r) for r in rows]
-            except Exception:
-                pass
+            except Exception as error:
+                raise self._mark_postgres_failure(error) from error
 
         with open(self.local_registry_file, "r", encoding="utf-8") as f:
             docs = json.load(f)
-        return sorted(docs, key=lambda x: x.get("created_at", ""), reverse=True)
+        return sorted(
+            (doc for doc in docs if doc.get("owner_id") == owner_id),
+            key=lambda x: x.get("created_at", ""),
+            reverse=True,
+        )
 
-    def has_ready_documents(self, document_id: Optional[str] = None) -> bool:
+    def has_ready_documents(self, owner_id: str, document_id: Optional[str] = None) -> bool:
         """Cho query route biết có corpus thật để tránh gọi LLM với context rỗng."""
         return any(
             document.get("status") == "ready" and (document_id is None or document.get("id") == document_id)
-            for document in self.list_documents()
+            for document in self.list_documents(owner_id)
         )
 
-    def delete_document(self, document_id: str) -> bool:
+    def delete_document(self, owner_id: str, document_id: str) -> bool:
         if self.is_postgres:
+            self._require_postgres_ready()
             try:
                 conn = self._get_pg_connection()
                 cur = conn.cursor()
-                cur.execute("DELETE FROM documents WHERE id = %s;", (document_id,))
+                cur.execute(
+                    "DELETE FROM documents WHERE id = %s AND owner_id = %s;",
+                    (document_id, owner_id),
+                )
+                found = cur.rowcount > 0
                 conn.commit()
                 cur.close()
                 conn.close()
-            except Exception:
-                pass
+            except Exception as error:
+                raise self._mark_postgres_failure(error) from error
+
+            return found
 
         # Xóa local JSONL và registry
+        with open(self.local_registry_file, "r", encoding="utf-8") as f:
+            docs = json.load(f)
+        matching_document = next(
+            (
+                document
+                for document in docs
+                if document.get("id") == document_id and document.get("owner_id") == owner_id
+            ),
+            None,
+        )
+        if not matching_document and not self.is_postgres:
+            return False
+
         jsonl_path = os.path.join(settings.PROCESSED_DIR, f"{document_id}.jsonl")
         if os.path.exists(jsonl_path):
             os.remove(jsonl_path)
 
-        with open(self.local_registry_file, "r", encoding="utf-8") as f:
-            docs = json.load(f)
-        new_docs = [d for d in docs if d["id"] != document_id]
+        new_docs = [
+            document
+            for document in docs
+            if not (document.get("id") == document_id and document.get("owner_id") == owner_id)
+        ]
         with open(self.local_registry_file, "w", encoding="utf-8") as f:
             json.dump(new_docs, f, ensure_ascii=False, indent=2)
 

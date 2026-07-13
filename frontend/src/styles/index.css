@@ -1,4 +1,7 @@
 @import './variables.css';
+@import './tokens.css';
+@import './auth.css';
+@import './dashboard.css';
 
 * {
   box-sizing: border-box;
@@ -19,14 +22,7 @@ body {
   line-height: 1.6;
   overflow-x: hidden;
   position: relative;
-  /* Sleek modern Tech background with top spotlight and subtle grid dot pattern */
-  background-image: 
-    radial-gradient(circle at 50% -20%, rgba(99, 102, 241, 0.22) 0%, rgba(9, 13, 22, 0) 65%),
-    radial-gradient(circle at 85% 60%, rgba(56, 189, 248, 0.08) 0%, rgba(9, 13, 22, 0) 50%),
-    radial-gradient(circle at 15% 70%, rgba(16, 185, 129, 0.06) 0%, rgba(9, 13, 22, 0) 50%),
-    radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
-  background-size: 100% 100%, 100% 100%, 100% 100%, 32px 32px;
-  background-attachment: fixed;
+  background-image: none;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -52,7 +48,7 @@ input:focus-visible,
 textarea:focus-visible,
 select:focus-visible,
 a:focus-visible {
-  outline: 3px solid rgba(129, 140, 248, 0.48);
+  outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -85,6 +81,38 @@ a:focus-visible {
     radial-gradient(circle at 95% 0%, rgba(186, 230, 253, 0.38), transparent 26%),
     #f5f7fc;
 }
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  position: relative;
+  z-index: 1;
+}
+
+.library-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-bottom: 3rem;
+}
+
+.coming-soon {
+  max-width: 660px;
+  margin: 4rem auto;
+  padding: 3.5rem 2rem;
+  text-align: center;
+  border: 1px solid rgba(205, 205, 255, .14);
+  border-radius: var(--radius-xl);
+  background: rgba(17, 20, 43, .64);
+}
+
+.coming-soon__icon { display: grid; place-items: center; width: 68px; height: 68px; margin: 0 auto 1.2rem; border-radius: 1.25rem; color: #e3e1ff; background: rgba(111, 97, 235, .22); }
+.coming-soon__eyebrow { color: #aaa8e5; font-size: .72rem; font-weight: 800; letter-spacing: .13em; }
+.coming-soon h2 { margin: .5rem 0 .8rem; font-size: 2rem; }
+.coming-soon p { margin: 0 auto 1.6rem; color: var(--color-muted); max-width: 480px; }
+.coming-soon button { min-height: 44px; border: 0; border-radius: .7rem; padding: .7rem 1rem; color: #29264d; background: #efefff; font-weight: 800; }
+
+.app-footer { display: flex; justify-content: space-between; gap: 1rem; padding: 1.5rem max(1.5rem, calc((100vw - 1280px) / 2)); border-top: 1px solid rgba(203, 204, 255, .08); color: #8188a4; background: rgba(7, 8, 20, .68); font-size: .78rem; }
 
 .glass-card {
   background: var(--color-surface);
@@ -170,4 +198,6 @@ a:focus-visible {
   .app-main--chat {
     padding: 1rem;
   }
+
+  .app-footer { flex-direction: column; padding: 1.25rem 1rem; }
 }

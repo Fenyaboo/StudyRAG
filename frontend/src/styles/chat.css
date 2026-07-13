@@ -35,9 +35,7 @@
   gap: 1rem;
   padding: 1.15rem 1.35rem;
   border-bottom: 1px solid #edf1f7;
-  background:
-    radial-gradient(circle at 92% 0%, rgba(129, 140, 248, 0.18), transparent 32%),
-    linear-gradient(135deg, #ffffff 0%, #f8faff 100%);
+  background: #f8faff;
 }
 
 .chat-identity {
@@ -55,7 +53,7 @@
   flex: 0 0 auto;
   border-radius: 14px;
   color: #fff;
-  background: linear-gradient(135deg, #7367f5, #4f46e5 58%, #2b86db);
+  background: #4f46e5;
   box-shadow: 0 8px 18px rgba(79, 70, 229, 0.22);
 }
 
@@ -220,6 +218,19 @@
   box-shadow: 0 4px 10px rgba(79, 70, 229, 0.16);
 }
 
+.empty-library-banner::after {
+  content: 'Riêng tư';
+  margin-left: .15rem;
+  border: 1px solid #e8dcb8;
+  border-radius: 999px;
+  padding: .18rem .42rem;
+  color: #80611c;
+  font-size: .62rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
 .chat-messages {
   min-height: 0;
   flex: 1;
@@ -229,9 +240,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 1.35rem;
-  background:
-    radial-gradient(circle at 0% 0%, rgba(238, 242, 255, 0.75), transparent 26%),
-    #f9fafc;
+  background: #f9fafc;
 }
 
 .chat-message {
@@ -258,7 +267,7 @@
   flex: 0 0 auto;
   border-radius: 11px;
   color: #fff;
-  background: linear-gradient(135deg, #5c65e9, #7c3aed);
+  background: #5c65e9;
   box-shadow: 0 4px 10px rgba(79, 70, 229, 0.2);
 }
 
@@ -301,7 +310,7 @@
   border-color: transparent;
   border-radius: 16px 4px 16px 16px;
   color: #fff;
-  background: linear-gradient(135deg, #6058df, #4f46c8);
+  background: #4f46c8;
   box-shadow: 0 7px 16px rgba(79, 70, 229, 0.2);
 }
 
@@ -497,7 +506,7 @@
   border-radius: 12px;
   padding: 0.64rem 0.84rem;
   color: #fff;
-  background: linear-gradient(135deg, #645be6, #4f46c8);
+  background: #4f46c8;
   box-shadow: 0 7px 14px rgba(79, 70, 229, 0.21);
   font-size: 0.78rem;
   font-weight: 800;
@@ -632,6 +641,10 @@
   }
 
   .empty-library-banner button {
+    margin-left: 0;
+  }
+
+  .empty-library-banner::after {
     margin-left: 0;
   }
 

@@ -16,6 +16,20 @@ export interface ReadyStatus {
 
 export type ConnectionState = 'checking' | 'online' | 'offline' | 'connected' | 'error';
 
+export interface DocumentRecord {
+  id: string;
+  filename: string;
+  title?: string;
+  subject?: string;
+  doc_type?: string;
+  status?: string;
+  page_count?: number;
+  chunk_count?: number;
+  file_size_bytes?: number;
+  created_at?: string;
+  error_message?: string;
+}
+
 export interface CitationItem {
   index: number;
   document_name: string;

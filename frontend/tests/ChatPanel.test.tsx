@@ -3,11 +3,16 @@ import { describe, expect, it, vi } from 'vitest';
 import { ChatPanel } from '../src/components/chat/ChatPanel';
 
 describe('ChatPanel', () => {
-  it('shows an upload CTA and disables querying when the library is empty', () => {
+  it('sends callers to library when no ready private document exists', () => {
     const onOpenLibrary = vi.fn();
-    render(<ChatPanel documents={[]} onOpenLibrary={onOpenLibrary} />);
+    render(
+      <ChatPanel
+        documents={[{ id: 'processing-document', filename: 'de-toan.pdf', status: 'processing' }]}
+        onOpenLibrary={onOpenLibrary}
+      />
+    );
 
-    expect(screen.getByText(/Chưa có tài liệu để AI tra cứu/i)).toBeInTheDocument();
+    expect(screen.getByText(/Bạn cần một tài liệu sẵn sàng/i)).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: /Câu hỏi cho StudyRAG/i })).toBeDisabled();
 
     fireEvent.click(screen.getByRole('button', { name: /Tải tài liệu/i }));

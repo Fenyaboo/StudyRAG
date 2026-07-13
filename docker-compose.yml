@@ -16,8 +16,14 @@ services:
       - APP_ENV=development
       - APP_HOST=0.0.0.0
       - APP_PORT=8000
-      - FRONTEND_ORIGINS=http://localhost:5173
+      - FRONTEND_ORIGINS=${FRONTEND_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
       - DATA_DIR=/app/data
+      - DATABASE_URL=${DATABASE_URL:?Set DATABASE_URL in the shell or project .env before make dev}
+      - VECTOR_STORE_TYPE=${VECTOR_STORE_TYPE:-supabase_pgvector}
+      - SUPABASE_URL=${SUPABASE_URL:?Set SUPABASE_URL in the shell or project .env before make dev}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:?Set SUPABASE_SERVICE_ROLE_KEY in the shell or project .env before make dev}
+      - SUPABASE_JWT_ISSUER=${SUPABASE_JWT_ISSUER:?Set SUPABASE_JWT_ISSUER in the shell or project .env before make dev}
+      - SUPABASE_JWT_AUDIENCE=${SUPABASE_JWT_AUDIENCE:-authenticated}
     restart: unless-stopped
 
   frontend:
@@ -32,7 +38,9 @@ services:
       - ./frontend/public:/app/public
       - ./frontend/index.html:/app/index.html
     environment:
-      - VITE_API_BASE_URL=http://localhost:8000/api/v1
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000/api/v1}
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL:?Set VITE_SUPABASE_URL in the shell or project .env before make dev}
+      - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY:?Set VITE_SUPABASE_ANON_KEY in the shell or project .env before make dev}
     depends_on:
       - backend
     restart: unless-stopped

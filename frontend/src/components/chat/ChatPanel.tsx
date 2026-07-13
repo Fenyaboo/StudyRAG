@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { BookOpen, Bot, CheckCircle2, FileText, Send, ShieldCheck, Sparkles, User, X } from 'lucide-react';
 import { ChatMessage, CitationItem } from '../../types';
-import { apiService } from '../../services/api';
+import { UnauthenticatedApiError, apiService } from '../../services/api';
 import '../../styles/chat.css';
 
 interface ChatDocument {
@@ -15,6 +15,7 @@ interface ChatDocument {
 interface ChatPanelProps {
   documents: ChatDocument[];
   onOpenLibrary: () => void;
+  draft?: string;
 }
 
 const samplePrompts = [
@@ -53,7 +54,7 @@ const MessageContent: React.FC<{ content: string }> = ({ content }) => (
   </div>
 );
 
-export const ChatPanel: React.FC<ChatPanelProps> = ({ documents, onOpenLibrary }) => {
+export const ChatPanel: React.FC<ChatPanelProps> = ({ documents, onOpenLibrary, draft = '' }) => {
   const [messages, setMessages] = useState<ChatMessage[]>(() => [
     {
       id: 'welcome',
@@ -72,6 +73,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ documents, onOpenLibrary }
 
   const searchableDocuments = documents.filter((document) => document.status === undefined || document.status === 'ready');
   const hasSearchableDocuments = searchableDocuments.length > 0;
+
+  useEffect(() => {
+    if (draft.trim()) setInput(draft);
+  }, [draft]);
 
   useEffect(() => {
     const isNewMessage = messages.length > previousMessageCountRef.current;
@@ -101,7 +106,14 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ documents, onOpenLibrary }
     setIsLoading(true);
     setActiveCitation(null);
 
-    const { data, error } = await apiService.queryRag(textToSend, selectedDocId || undefined);
+    let data;
+    let error;
+    try {
+      ({ data, error } = await apiService.queryRag(textToSend, selectedDocId || undefined));
+    } catch (requestError) {
+      if (requestError instanceof UnauthenticatedApiError) return;
+      error = 'Không thể kết nối tới máy chủ.';
+    }
     setIsLoading(false);
 
     if (error || !data) {
@@ -188,8 +200,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ documents, onOpenLibrary }
           <div className="empty-library-banner" role="status">
             <div className="empty-library-banner__icon" aria-hidden="true"><BookOpen size={20} /></div>
             <div>
-              <strong>Chưa có tài liệu để AI tra cứu</strong>
-              <p>Tải PDF vào thư viện trước để StudyRAG có nguồn trả lời chính xác.</p>
+              <strong>Bạn cần một tài liệu sẵn sàng</strong>
+              <p>Tải PDF vào thư viện riêng trước để StudyRAG có nguồn trả lời chính xác.</p>
             </div>
             <button type="button" onClick={onOpenLibrary}>Tải tài liệu</button>
           </div>

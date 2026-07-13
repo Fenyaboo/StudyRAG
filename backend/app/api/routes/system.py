@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from fastapi.responses import JSONResponse
 from datetime import datetime, timezone
 from app.schemas.system import HealthResponse, ReadyResponse
 from app.core.config import settings
@@ -21,10 +22,24 @@ async def get_health():
 @router.get("/ready", response_model=ReadyResponse)
 async def get_ready():
     """
-    Check backend readiness, including database and vector store connectivity.
+    Check backend configuration readiness without accessing private documents.
     """
-    documents = storage_repo.list_documents()
-    ready_documents = [document for document in documents if document.get("status") == "ready"]
+    if storage_repo.is_postgres and not storage_repo.is_ready:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "not_ready",
+                "database": "postgres_unready",
+                "vector_store": "unavailable",
+                "embedding_provider": settings.EMBEDDING_PROVIDER,
+                "llm_provider": settings.LLM_PROVIDER,
+                "details": {
+                    "database_error": storage_repo.readiness_error,
+                    "migration": "supabase/migrations/20260713_auth_private_library.sql",
+                },
+            },
+        )
+
     storage_label = "postgres_ready" if storage_repo.is_postgres else "jsonl_ready"
 
     return ReadyResponse(
@@ -36,8 +51,6 @@ async def get_ready():
         details={
             "retrieval_top_k": settings.RETRIEVAL_TOP_K,
             "max_upload_mb": settings.MAX_UPLOAD_MB,
-            "document_count": len(documents),
-            "ready_document_count": len(ready_documents),
-            "retrieval_mode": "lexical_jsonl",
+            "retrieval_mode": "lexical_postgres" if storage_repo.is_postgres else "lexical_jsonl",
         },
     )

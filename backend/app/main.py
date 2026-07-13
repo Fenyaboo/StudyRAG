@@ -1,5 +1,6 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.core.auth import get_current_user
 from app.core.config import settings
 from app.api.routes import system, ingest, query
 
@@ -14,17 +15,26 @@ app = FastAPI(
 # Cấu hình CORS cho phép Frontend kết nối
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_origin_regex="https://.*",
+    allow_origins=settings.FRONTEND_ORIGINS,
     allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 # Mount các Router API V1
 app.include_router(system.router, prefix="/api/v1", tags=["system"])
-app.include_router(ingest.router, prefix="/api/v1", tags=["ingestion"])
-app.include_router(query.router, prefix="/api/v1", tags=["query"])
+app.include_router(
+    ingest.router,
+    prefix="/api/v1",
+    tags=["ingestion"],
+    dependencies=[Depends(get_current_user)],
+)
+app.include_router(
+    query.router,
+    prefix="/api/v1",
+    tags=["query"],
+    dependencies=[Depends(get_current_user)],
+)
 
 @app.get("/", tags=["root"])
 async def root():

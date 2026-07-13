@@ -1,14 +1,14 @@
 import logging
-from typing import List, Optional
-from fastapi import APIRouter, HTTPException, status
+from typing import Annotated, List, Optional
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from app.db.supabase import StorageRepository
+from app.core.auth import CurrentUser, get_current_user
+from app.db.supabase import storage_repo
 from app.services.llm_service import LLMService
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-storage_repo = StorageRepository()
 
 class QueryRequest(BaseModel):
     query: str
@@ -46,7 +46,10 @@ def _retrieval_guard_response(answer: str, error_code: str) -> QueryResponse:
 
 @router.post("/query", response_model=QueryResponse, summary="Thực hiện hỏi đáp RAG với tài liệu đã nạp")
 @router.post("/chat", response_model=QueryResponse, summary="Endpoint hỏi đáp (bí danh của /query)")
-async def execute_rag_query(request: QueryRequest):
+async def execute_rag_query(
+    request: QueryRequest,
+    current_user: Annotated[CurrentUser, Depends(get_current_user)],
+):
     if not request.query or not request.query.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -58,13 +61,13 @@ async def execute_rag_query(request: QueryRequest):
 
     try:
         # Do not ask an LLM to answer without a real, ready corpus.
-        if not storage_repo.has_ready_documents():
+        if not storage_repo.has_ready_documents(current_user.id):
             return _retrieval_guard_response(
                 "Kho tài liệu đang trống. Hãy tải ít nhất một file PDF vào Thư viện rồi đặt lại câu hỏi để mình có nguồn kiểm chứng.",
                 "NO_DOCUMENTS",
             )
 
-        if request.document_id and not storage_repo.has_ready_documents(request.document_id):
+        if request.document_id and not storage_repo.has_ready_documents(current_user.id, request.document_id):
             return _retrieval_guard_response(
                 "Tài liệu bạn đã chọn không còn sẵn sàng để tra cứu. Hãy chọn lại một tài liệu trong Thư viện.",
                 "DOCUMENT_NOT_AVAILABLE",
@@ -73,6 +76,7 @@ async def execute_rag_query(request: QueryRequest):
         # Bước 1: Tìm chunks liên quan trong kho tài liệu, đã lọc document từ đầu nếu người dùng chọn.
         search_results = storage_repo.search(
             query_text=request.query,
+            owner_id=current_user.id,
             top_k=top_k,
             min_score=min_score,
             document_id=request.document_id,
