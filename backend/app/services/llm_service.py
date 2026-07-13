@@ -69,11 +69,14 @@ class LLMService:
             else: # ollama
                 answer = await cls._call_ollama(sys_prompt, user_prompt)
         except Exception as e:
-            logger.error(f"Lỗi khi gọi provider '{provider}': {str(e)}")
-            error_msg = f"Lỗi kết nối tới mô hình AI '{provider}': {str(e)}"
+            err_detail = str(e)
+            logger.error(f"Lỗi khi gọi provider '{provider}': {err_detail}")
+            error_msg = f"Lỗi kết nối tới mô hình AI '{provider}': {err_detail}"
             answer = (
-                f"⚠️ Xin lỗi bạn, hiện tại kết nối tới mô hình AI ({provider.upper()}) gặp sự cố hoặc chưa cấu hình API Key chính xác.\n\n"
-                f"👉 Dưới đây là các đoạn thông tin liên quan nhất từ tài liệu mà hệ thống đã tìm thấy để bạn tham khảo trực tiếp:\n\n"
+                f"⚠️ **Kết nối tới mô hình AI ({provider.upper()}) gặp sự cố:**\n"
+                f"`{err_detail}`\n\n"
+                f"💡 *Gợi ý:* Nếu lỗi là **404 Not Found**, kiểm tra lại tên model trên Render (`NVIDIA_MODEL`). Mô hình chuẩn của NVIDIA NIM là `meta/llama-3.1-70b-instruct` hoặc `qwen/qwen2.5-72b-instruct`.\n\n"
+                f"👉 **Dưới đây là các đoạn thông tin liên quan nhất từ tài liệu mà hệ thống RAG đã bóc tách chính xác từ đề thi của bạn:**\n\n"
                 + "\n\n".join([f"**{c['document_name']} (Trang {c['page']})**:\n{c['text']}" for c in citations])
             )
 
@@ -119,7 +122,8 @@ class LLMService:
         }
         async with httpx.AsyncClient(timeout=45.0) as client:
             res = await client.post(url, headers=headers, json=payload)
-            res.raise_for_status()
+            if res.status_code >= 400:
+                raise RuntimeError(f"HTTP {res.status_code} - {res.text}")
             data = res.json()
             return data["choices"][0]["message"]["content"]
 
@@ -143,7 +147,8 @@ class LLMService:
         }
         async with httpx.AsyncClient(timeout=45.0) as client:
             res = await client.post(url, json=payload)
-            res.raise_for_status()
+            if res.status_code >= 400:
+                raise RuntimeError(f"HTTP {res.status_code} - {res.text}")
             data = res.json()
             return data["candidates"][0]["content"]["parts"][0]["text"]
 
@@ -167,7 +172,8 @@ class LLMService:
         }
         async with httpx.AsyncClient(timeout=45.0) as client:
             res = await client.post(url, headers=headers, json=payload)
-            res.raise_for_status()
+            if res.status_code >= 400:
+                raise RuntimeError(f"HTTP {res.status_code} - {res.text}")
             data = res.json()
             return data["choices"][0]["message"]["content"]
 
@@ -185,6 +191,7 @@ class LLMService:
         }
         async with httpx.AsyncClient(timeout=60.0) as client:
             res = await client.post(url, json=payload)
-            res.raise_for_status()
+            if res.status_code >= 400:
+                raise RuntimeError(f"HTTP {res.status_code} - {res.text}")
             data = res.json()
             return data["message"]["content"]
