@@ -98,5 +98,26 @@ export const apiService = {
     } catch (err: any) {
       return { success: false, error: err.message };
     }
+  },
+
+  async queryRag(query: string, documentId?: string): Promise<{ data: any | null; error?: string }> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/query`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ query, document_id: documentId })
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+        return { data: null, error: errData.detail || `HTTP ${res.status}` };
+      }
+      const data = await res.json();
+      return { data };
+    } catch (err: any) {
+      return { data: null, error: err.message };
+    }
   }
 };

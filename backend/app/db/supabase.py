@@ -174,6 +174,110 @@ class StorageRepository:
 
         return len(chunks)
 
+    def search(self, query_text: str, top_k: int = 5, min_score: float = 0.25) -> List[Dict[str, Any]]:
+        """Tìm kiếm các đoạn văn bản (chunks) liên quan nhất với query."""
+        results = []
+        query_words = [w.lower().strip() for w in query_text.split() if len(w.strip()) > 1]
+
+        # 1. Nếu trên Supabase pgvector
+        if self.is_postgres:
+            try:
+                conn = self._get_pg_connection()
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT c.id, c.document_id, c.content, c.metadata, d.filename, d.title
+                    FROM document_chunks c
+                    JOIN documents d ON c.document_id = d.id
+                    LIMIT 200;
+                """)
+                rows = cur.fetchall()
+                cur.close()
+                conn.close()
+
+                for r in rows:
+                    content = r["content"] or ""
+                    meta = r["metadata"]
+                    if isinstance(meta, str):
+                        try:
+                            meta = json.loads(meta)
+                        except Exception:
+                            meta = {}
+                    meta = meta or {}
+
+                    # Tính điểm tương đồng từ khóa / ngữ cảnh
+                    content_lower = content.lower()
+                    score = 0.0
+                    for w in query_words:
+                        if w in content_lower:
+                            score += 0.2
+                    if any(w in (meta.get("section", "").lower()) for w in query_words):
+                        score += 0.3
+                    if score == 0 and not query_words:
+                        score = 0.5
+                    elif score == 0 and len(content) > 20:
+                        score = 0.3  # Ngữ cảnh nền
+
+                    if score >= min_score:
+                        results.append({
+                            "id": r["id"],
+                            "document_id": r["document_id"],
+                            "file_name": r["filename"] or r["title"] or "Tài liệu",
+                            "page": meta.get("page_number") or meta.get("page", 1),
+                            "content": content,
+                            "score": min(score, 1.0)
+                        })
+                results.sort(key=lambda x: x["score"], reverse=True)
+                return results[:top_k]
+            except Exception as e:
+                print(f"[CẢNH BÁO] Tìm kiếm Supabase lỗi: {str(e)}. Chuyển sang tìm kiếm Local JSONL.")
+
+        # 2. Tìm kiếm Local JSONL trong data/processed/
+        doc_registry = {d["id"]: d for d in self.list_documents()}
+        if not os.path.exists(settings.PROCESSED_DIR):
+            return []
+
+        for fname in os.listdir(settings.PROCESSED_DIR):
+            if not fname.endswith(".jsonl"):
+                continue
+            doc_id = fname[:-6]
+            doc_info = doc_registry.get(doc_id, {})
+            file_name = doc_info.get("filename") or doc_info.get("title") or f"Tài liệu ({doc_id[:6]})"
+
+            fpath = os.path.join(settings.PROCESSED_DIR, fname)
+            try:
+                with open(fpath, "r", encoding="utf-8") as f:
+                    for line in f:
+                        if not line.strip():
+                            continue
+                        chunk = json.loads(line)
+                        content = chunk.get("content") or chunk.get("text", "")
+                        meta = chunk.get("metadata", {}) or {}
+
+                        content_lower = content.lower()
+                        score = 0.0
+                        for w in query_words:
+                            if w in content_lower:
+                                score += 0.22
+                        if any(w in (meta.get("section", "").lower()) for w in query_words):
+                            score += 0.3
+                        if score == 0 and len(content) > 30:
+                            score = 0.28  # Đoạn thông tin nền
+
+                        if score >= min_score:
+                            results.append({
+                                "id": chunk.get("id", f"{doc_id}_{len(results)}"),
+                                "document_id": doc_id,
+                                "file_name": file_name,
+                                "page": meta.get("page_number") or meta.get("page", 1),
+                                "content": content,
+                                "score": min(score, 1.0)
+                            })
+            except Exception as e:
+                print(f"[LỖI] Đọc file {fname}: {str(e)}")
+
+        results.sort(key=lambda x: x["score"], reverse=True)
+        return results[:top_k]
+
     def list_documents(self) -> List[Dict[str, Any]]:
         if self.is_postgres:
             try:

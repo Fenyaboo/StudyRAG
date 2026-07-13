@@ -15,3 +15,31 @@ export interface ReadyStatus {
 }
 
 export type ConnectionState = 'checking' | 'online' | 'offline' | 'connected' | 'error';
+
+export interface CitationItem {
+  index: number;
+  document_name: string;
+  page: number;
+  text: string;
+  score: number;
+}
+
+export interface QueryResponse {
+  answer: string;
+  citations: CitationItem[];
+  provider: string;
+  model: string;
+  latency_ms: number;
+  error?: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  citations?: CitationItem[];
+  provider?: string;
+  model?: string;
+  latencyMs?: number;
+  timestamp: string;
+}

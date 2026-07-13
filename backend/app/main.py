@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.api.routes import system, ingest
+from app.api.routes import system, ingest, query
 
 app = FastAPI(
     title="StudyRAG Backend API",
@@ -24,6 +24,7 @@ app.add_middleware(
 # Mount các Router API V1
 app.include_router(system.router, prefix="/api/v1", tags=["system"])
 app.include_router(ingest.router, prefix="/api/v1", tags=["ingestion"])
+app.include_router(query.router, prefix="/api/v1", tags=["query"])
 
 @app.get("/", tags=["root"])
 async def root():

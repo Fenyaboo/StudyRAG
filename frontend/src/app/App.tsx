@@ -3,9 +3,10 @@ import { Header } from '../components/common/Header';
 import { StatusCard } from '../components/common/StatusCard';
 import { apiService } from '../services/api';
 import { HealthStatus, ReadyStatus, ConnectionState } from '../types';
-import { BookOpen, MessageSquare, History, Settings, CheckSquare, Sparkles, Github, Layers, Star, Award } from 'lucide-react';
+import { BookOpen, History, Settings, CheckSquare, Sparkles, Github, Layers, Star, Award } from 'lucide-react';
 import { UploadDropzone } from '../components/library/UploadDropzone';
 import { DocumentList } from '../components/library/DocumentList';
+import { ChatPanel } from '../components/chat/ChatPanel';
 import '../styles/index.css';
 
 interface DemoCitation {
@@ -452,7 +453,11 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {activeTab !== 'dashboard' && activeTab !== 'library' && (
+        {activeTab === 'chat' && (
+          <ChatPanel documents={documents} />
+        )}
+
+        {activeTab !== 'dashboard' && activeTab !== 'library' && activeTab !== 'chat' && (
           <div className="glass-card" style={{ textAlign: 'center', padding: '5rem 2.5rem', maxWidth: '760px', margin: '3rem auto' }}>
             <div style={{
               width: '80px',
@@ -466,7 +471,6 @@ export const App: React.FC = () => {
               margin: '0 auto 1.75rem auto',
               boxShadow: '0 0 35px rgba(99, 102, 241, 0.4)'
             }}>
-              {activeTab === 'chat' && <MessageSquare size={40} color="var(--color-primary-light)" />}
               {activeTab === 'history' && <History size={40} color="var(--color-primary-light)" />}
               {activeTab === 'settings' && <Settings size={40} color="var(--color-primary-light)" />}
             </div>
