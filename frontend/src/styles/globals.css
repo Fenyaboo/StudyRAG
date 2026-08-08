@@ -4,19 +4,17 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background: #080b16; }
+:root { color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background: #F7F5EF; }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
-body { margin: 0; min-width: 320px; background: #080b16; }
+body { margin: 0; min-width: 320px; background: #F7F5EF; color: #111110; }
 button, input, textarea, select { font: inherit; }
-::selection { background: rgba(78, 125, 255, 0.35); color: white; }
+::selection { background: rgba(240, 78, 35, 0.25); color: #111110; }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.16); border-radius: 99px; }
-/* Landing page uses a light editorial theme; keep native UI light there. */
+::-webkit-scrollbar-thumb { background: rgba(17, 17, 16, 0.2); border-radius: 99px; }
+/* Kept for components that opt in explicitly; the whole app is light now. */
 .theme-light { color-scheme: light; }
-.theme-light ::selection { background: rgba(240, 78, 35, 0.25); color: #111110; }
-.theme-light ::-webkit-scrollbar-thumb { background: rgba(17, 17, 16, 0.2); }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
@@ -27,8 +25,8 @@ button, input, textarea, select { font: inherit; }
 .markdown p:last-child { margin-bottom: 0; }
 .markdown ul, .markdown ol { margin: 0.5rem 0 0.75rem 1.25rem; }
 .markdown li { margin: 0.25rem 0; }
-.markdown code { border-radius: 0.35rem; background: rgba(255,255,255,.08); padding: .15rem .35rem; font-size: .85em; }
-.markdown pre { overflow-x: auto; border: 1px solid rgba(255,255,255,.08); border-radius: .75rem; background: rgba(0,0,0,.25); padding: .75rem; margin: .75rem 0; }
+.markdown code { border-radius: 0.35rem; background: rgba(17,17,16,.06); padding: .15rem .35rem; font-size: .85em; }
+.markdown pre { overflow-x: auto; border: 1px solid rgba(17,17,16,.1); border-radius: .75rem; background: rgba(236,231,220,.6); padding: .75rem; margin: .75rem 0; }
 .markdown pre code { background: transparent; padding: 0; }
 
 /* Auth: sliding overlay panel (login on the left, signup on the right). */

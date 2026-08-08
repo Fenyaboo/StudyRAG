@@ -6,22 +6,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        ink: "#080b16",
-        panel: "#101526",
-        line: "rgba(148, 163, 184, 0.14)",
-        primary: {
-          50: "#eef5ff",
-          100: "#dbe8ff",
-          200: "#bcd3ff",
-          300: "#9dbcff",
-          400: "#7aa7ff",
-          500: "#4e7dff",
-          600: "#315fe8",
-          700: "#2249b8",
-          900: "#15275f",
-          950: "#0d1738",
-        },
-        /* Landing (editorial light) palette */
+        /* Editorial light palette shared by landing, auth and workspace */
         cream: "#F7F5EF",
         sand: "#ECE7DC",
         carbon: "#111110",
@@ -33,7 +18,6 @@ export default {
         },
       },
       boxShadow: {
-        glow: "0 0 60px rgba(78, 125, 255, 0.16)",
         hard: "5px 5px 0 0 #111110",
         "hard-accent": "5px 5px 0 0 #F04E23",
         lift: "0 30px 70px -35px rgba(17, 17, 16, 0.45)",
