@@ -273,9 +273,9 @@
   python -m pytest backend/tests/test_irp_identity_exploration.py backend/tests/test_irp_identity_preservation.py backend/tests/test_documents_ingest.py backend/tests/test_repositories.py -q
   python -m ruff check backend/app/api/v1/documents.py backend/app/db/repositories/document_repo.py backend/tests
   ```
-- **Requirements:** `_Bug_Condition: isBugCondition(X) với persisted_document_id != scheduled_document_id._`  
-  `_Expected_Behavior: expectedBehavior(X, result) yêu cầu hai ID bằng nhau, cùng owner và không có orphan job._`  
-  `_Preservation: Preservation Requirements về owner isolation, API contract, cleanup._`  
+- **Requirements:** `_Bug_Condition: isBugCondition(X) với persisted_document_id != scheduled_document_id._`
+  `_Expected_Behavior: expectedBehavior(X, result) yêu cầu hai ID bằng nhau, cùng owner và không có orphan job._`
+  `_Preservation: Preservation Requirements về owner isolation, API contract, cleanup._`
   `_Requirements: 2.1.1, 2.1.2, 2.1.3, 2.1.4, 2.6.1, 2.6.2, 3.3, 3.4, 3.5_`
 
 ### IRP-012 — Bounded status transition, update guard, timeout và recovery
