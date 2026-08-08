@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+*.egg-info/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+backend/.env
+frontend/.env
+
+# Node
+node_modules/
+frontend/dist/
+.npm/
+*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
+
+# Model/cache
+.cache/
+models/
+*.safetensors
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# Test artifacts
+coverage.xml
+htmlcov/

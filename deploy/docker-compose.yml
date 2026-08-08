@@ -1,0 +1,25 @@
+services:
+  api:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+      args:
+        EMBEDDING_MODEL: ${EMBEDDING_MODEL:-bkai-foundation-models/vietnamese-bi-encoder}
+    image: studyrag-api:latest
+    restart: unless-stopped
+    env_file:
+      - ../backend/.env
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    networks:
+      - studyrag
+
+networks:
+  studyrag:
+    driver: bridge

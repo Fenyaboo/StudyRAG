@@ -1,0 +1,1 @@
+export function Loading({ label = "Đang tải…" }: { label?: string }) { return <div className="flex items-center justify-center gap-2 py-12 text-sm text-slate-600"><span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-700 border-t-primary-300" />{label}</div>; }
