@@ -14,6 +14,7 @@ class DocumentRepository:
         self,
         owner_id: UUID,
         *,
+        document_id: UUID,
         storage_key: str,
         title: str,
         filename: str,
@@ -22,16 +23,23 @@ class DocumentRepository:
         subject: str,
         doc_type: str,
     ) -> dict[str, Any]:
+        """Chèn document mới với id được caller quyết định tường minh.
+
+        `document_id` là bắt buộc: caller đã dùng chính id này để tạo `storage_key`
+        và để lên lịch task xử lý nền, nên row trong DB phải mang đúng id đó thay vì
+        để Postgres sinh ra id khác qua DEFAULT gen_random_uuid().
+        """
         query = """
             INSERT INTO public.documents
-                (owner_id, storage_key, title, filename, file_hash, file_size_bytes, subject, doc_type)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+                (id, owner_id, storage_key, title, filename, file_hash, file_size_bytes, subject, doc_type)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
             RETURNING id,title,filename,file_size_bytes,subject,doc_type,status,page_count,
                       chunk_count,error_message,created_at,updated_at,storage_key
         """
         async with self.pool.acquire() as conn:
             record = await conn.fetchrow(
                 query,
+                document_id,
                 owner_id,
                 storage_key,
                 title,
@@ -133,6 +141,34 @@ class DocumentRepository:
                 error_message,
             )
         return dict(record) if record else None
+
+    async def fail_stale_processing(self, *, older_than_seconds: int) -> int:
+        """Maintenance job chạy lúc startup — KHÔNG phải endpoint phục vụ người dùng.
+
+        Chuyển các document còn treo ở `processing` mà `updated_at` cũ hơn
+        `older_than_seconds` sang `failed` (ví dụ tiến trình bị restart giữa lúc xử lý).
+        Đây là tác vụ bảo trì toàn hệ thống nên cố tình không nhận `owner_id`; bù lại
+        method chỉ được phép đổi trạng thái theo mốc thời gian và KHÔNG trả về bất kỳ
+        dữ liệu nào của owner — chỉ trả về số row đã cập nhật.
+        """
+        async with self.pool.acquire() as conn:
+            count = await conn.fetchval(
+                """
+                WITH stale AS (
+                    UPDATE public.documents
+                    SET status='failed',
+                        error_message=$2,
+                        updated_at=now()
+                    WHERE status='processing'
+                      AND updated_at < now() - make_interval(secs => $1::double precision)
+                    RETURNING 1
+                )
+                SELECT count(*) FROM stale
+                """,
+                float(older_than_seconds),
+                "Quá trình xử lý bị gián đoạn (tiến trình khởi động lại hoặc vượt thời gian cho phép).",
+            )
+        return int(count or 0)
 
     async def stats(self, owner_id: UUID) -> dict[str, int]:
         async with self.pool.acquire() as conn:

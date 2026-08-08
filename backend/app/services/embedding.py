@@ -4,7 +4,7 @@ from typing import Any
 
 import numpy as np
 
-from app.core.config import Settings
+from app.core.config import Settings, model_cache_dir
 
 
 class EmbeddingService:
@@ -25,7 +25,10 @@ class EmbeddingService:
                 if self._model is None:
                     from sentence_transformers import SentenceTransformer
 
-                    self._model = SentenceTransformer(self.model_name)
+                    # Chỉ định cache_folder tường minh để dùng lại model đã tải sẵn
+                    # (trong container là /opt/huggingface), tránh tải lại ~500MB lúc runtime.
+                    # None = giữ hành vi cache mặc định khi chạy local.
+                    self._model = SentenceTransformer(self.model_name, cache_folder=model_cache_dir())
                     actual_dimension = self._model.get_sentence_embedding_dimension()
                     if actual_dimension and actual_dimension != self.dimension:
                         raise RuntimeError(

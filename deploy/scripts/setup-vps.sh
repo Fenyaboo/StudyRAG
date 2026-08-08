@@ -19,9 +19,9 @@ if ! command -v docker >/dev/null 2>&1; then
   systemctl enable --now docker
 fi
 
-mkdir -p "${APP_DIR}" /var/www/html
-cp -R "${REPO_DIR}/deploy/docker-compose.yml" "${APP_DIR}/docker-compose.yml"
-cp -R "${REPO_DIR}/backend" "${APP_DIR}/backend"
+mkdir -p "${APP_DIR}/deploy" "${APP_DIR}/backend" /var/www/html
+cp -R "${REPO_DIR}/deploy/docker-compose.yml" "${APP_DIR}/deploy/docker-compose.yml"
+cp -R "${REPO_DIR}/backend/." "${APP_DIR}/backend/"
 
 install -m 0644 "${REPO_DIR}/deploy/nginx/studyrag.conf" "/etc/nginx/sites-available/studyrag.conf"
 ln -sf /etc/nginx/sites-available/studyrag.conf /etc/nginx/sites-enabled/studyrag.conf
@@ -41,5 +41,5 @@ fi
 
 echo "VPS base setup complete. Next:"
 echo "  1) Edit ${APP_DIR}/backend/.env"
-echo "  2) cd ${APP_DIR} && docker compose up -d --build"
+echo "  2) docker compose -f ${APP_DIR}/deploy/docker-compose.yml up -d --build"
 echo "  3) certbot --nginx -d ${DOMAIN}"

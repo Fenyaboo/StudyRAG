@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import logging
 import re
@@ -33,6 +34,102 @@ def _safe_filename(filename: str | None) -> str:
     return (value or "document.pdf")[:180]
 
 
+async def _set_status(
+    document_repo: DocumentRepository,
+    owner_id: UUID,
+    document_id: UUID,
+    *,
+    status: str,
+    page_count: int | None = None,
+    chunk_count: int | None = None,
+    error_message: str | None = None,
+) -> bool:
+    """Cập nhật trạng thái document và log rõ ràng khi UPDATE không khớp row nào.
+
+    `update_status()` trả về None khi không có row nào khớp (sai id hoặc sai owner).
+    Trước đây giá trị trả về bị bỏ qua, nên tài liệu treo ở `processing` mà không có
+    dấu vết nào trong log. Hàm này không bao giờ raise để có thể gọi an toàn từ
+    trong block `except`.
+    """
+    try:
+        record = await document_repo.update_status(
+            owner_id,
+            document_id,
+            status=status,
+            page_count=page_count,
+            chunk_count=chunk_count,
+            error_message=error_message,
+        )
+    except Exception:
+        logger.exception(
+            "Không cập nhật được trạng thái document (document_id=%s, status dự định=%s)",
+            document_id,
+            status,
+        )
+        return False
+    if not record:
+        logger.error(
+            "Cập nhật trạng thái document không khớp row nào (document_id=%s, status dự định=%s)",
+            document_id,
+            status,
+        )
+        return False
+    return True
+
+
+async def _run_ingest_pipeline(
+    *,
+    request: Request,
+    owner_id: UUID,
+    document_id: UUID,
+    content: bytes,
+    doc_type: str,
+) -> None:
+    """Parse -> chunk -> embed -> lưu chunk -> đánh dấu ready. Raise nếu thất bại."""
+    pool = request.app.state.pool
+    document_repo = DocumentRepository(pool)
+    chunk_repo = ChunkRepository(pool)
+    parser = request.app.state.pdf_parser
+    chunker = request.app.state.chunker
+    embedding = request.app.state.embedding
+
+    parsed = parser.parse(content)
+    if parsed.requires_ocr:
+        await _set_status(
+            document_repo,
+            owner_id,
+            document_id,
+            status="ocr_required",
+            page_count=parsed.page_count,
+            error_message="PDF không có lớp text; cần OCR trước khi lập chỉ mục.",
+        )
+        return
+
+    chunks = chunker.build(document_id, parsed.pages, doc_type=doc_type)
+    if not chunks:
+        raise ValueError("Không trích xuất được nội dung có thể lập chỉ mục")
+    vectors = await embedding.encode([chunk.content for chunk in chunks])
+    if len(vectors) != len(chunks):
+        raise RuntimeError("Embedding service trả về số vector không khớp số chunk")
+    await chunk_repo.replace_for_document(
+        owner_id,
+        document_id,
+        [
+            {"id": chunk.id, "content": chunk.content, "metadata": chunk.metadata, "embedding": vector}
+            for chunk, vector in zip(chunks, vectors, strict=True)
+        ],
+    )
+    await _set_status(
+        document_repo,
+        owner_id,
+        document_id,
+        status="ready",
+        page_count=parsed.page_count,
+        chunk_count=len(chunks),
+        error_message=None,
+    )
+
+
 async def _process_document(
     *,
     request: Request,
@@ -41,54 +138,62 @@ async def _process_document(
     content: bytes,
     doc_type: str,
 ) -> None:
-    pool = request.app.state.pool
-    document_repo = DocumentRepository(pool)
-    chunk_repo = ChunkRepository(pool)
-    parser = request.app.state.pdf_parser
-    chunker = request.app.state.chunker
-    embedding = request.app.state.embedding
+    """Wrapper có timeout: tài liệu không bao giờ được treo ở `processing` vĩnh viễn."""
+    document_repo = DocumentRepository(request.app.state.pool)
+    timeout = float(getattr(request.app.state.settings, "ingest_timeout_seconds", 900) or 900)
     try:
-        parsed = parser.parse(content)
-        if parsed.requires_ocr:
-            await document_repo.update_status(
-                owner_id,
-                document_id,
-                status="ocr_required",
-                page_count=parsed.page_count,
-                error_message="PDF không có lớp text; cần OCR trước khi lập chỉ mục.",
-            )
-            return
-
-        chunks = chunker.build(document_id, parsed.pages, doc_type=doc_type)
-        if not chunks:
-            raise ValueError("Không trích xuất được nội dung có thể lập chỉ mục")
-        vectors = await embedding.encode([chunk.content for chunk in chunks])
-        if len(vectors) != len(chunks):
-            raise RuntimeError("Embedding service trả về số vector không khớp số chunk")
-        await chunk_repo.replace_for_document(
-            owner_id,
-            document_id,
-            [
-                {"id": chunk.id, "content": chunk.content, "metadata": chunk.metadata, "embedding": vector}
-                for chunk, vector in zip(chunks, vectors, strict=True)
-            ],
+        await asyncio.wait_for(
+            _run_ingest_pipeline(
+                request=request,
+                owner_id=owner_id,
+                document_id=document_id,
+                content=content,
+                doc_type=doc_type,
+            ),
+            timeout=timeout,
         )
-        await document_repo.update_status(
+    except (asyncio.TimeoutError, TimeoutError):
+        logger.error("Document processing timed out (document_id=%s, timeout=%ss)", document_id, timeout)
+        await _set_status(
+            document_repo,
             owner_id,
             document_id,
-            status="ready",
-            page_count=parsed.page_count,
-            chunk_count=len(chunks),
-            error_message=None,
+            status="failed",
+            error_message=f"Xử lý tài liệu vượt quá {int(timeout)} giây và đã bị hủy.",
         )
     except Exception as exc:
-        logger.exception("Document processing failed", extra={"document_id": str(document_id)})
-        await document_repo.update_status(
+        logger.exception("Document processing failed (document_id=%s)", document_id)
+        await _set_status(
+            document_repo,
             owner_id,
             document_id,
             status="failed",
             error_message=str(exc)[:1000],
         )
+    except BaseException as exc:
+        # Ví dụ asyncio.CancelledError khi process shutdown: cố ghi `failed` theo kiểu
+        # best-effort rồi re-raise để không phá vỡ cơ chế hủy task của asyncio.
+        logger.error(
+            "Document processing bị hủy (document_id=%s, exception=%s)",
+            document_id,
+            type(exc).__name__,
+        )
+        try:
+            await asyncio.shield(
+                _set_status(
+                    document_repo,
+                    owner_id,
+                    document_id,
+                    status="failed",
+                    error_message=f"Quá trình xử lý bị hủy ({type(exc).__name__}).",
+                )
+            )
+        except BaseException:
+            logger.error(
+                "Không ghi được trạng thái failed sau khi task bị hủy (document_id=%s)",
+                document_id,
+            )
+        raise
 
 
 @router.post("/ingest", response_model=IngestResponse, status_code=status.HTTP_202_ACCEPTED)
@@ -123,6 +228,7 @@ async def ingest_document(
         await request.app.state.storage.upload_pdf(storage_key, content)
         record = await document_repo.create(
             current_user.id,
+            document_id=document_id,
             storage_key=storage_key,
             title=PurePath(filename).stem[:180],
             filename=filename,

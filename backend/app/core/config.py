@@ -1,7 +1,23 @@
+import os
 from functools import lru_cache
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def model_cache_dir() -> str | None:
+    """Thư mục cache dùng chung cho sentence-transformers và transformers.
+
+    Trả về `SENTENCE_TRANSFORMERS_HOME` nếu có, sau đó `HF_HOME`. Nếu cả hai đều
+    không được đặt (thường là khi chạy local) thì trả về None để giữ nguyên hành vi
+    cache mặc định của thư viện. Trong container, biến này phải trùng với đường dẫn
+    đã tải model lúc build image để không tải lại ~500MB lúc runtime.
+    """
+    for name in ("SENTENCE_TRANSFORMERS_HOME", "HF_HOME"):
+        value = os.environ.get(name, "").strip()
+        if value:
+            return value
+    return None
 
 
 class Settings(BaseSettings):
@@ -46,6 +62,9 @@ class Settings(BaseSettings):
     embedding_batch_size: int = Field(default=32, validation_alias="EMBEDDING_BATCH_SIZE")
 
     max_upload_size_bytes: int = Field(default=50 * 1024 * 1024, validation_alias="MAX_UPLOAD_SIZE_BYTES")
+    # Thời gian tối đa cho một lượt xử lý (parse + chunk + embed) một tài liệu.
+    # Cũng là ngưỡng để job recovery lúc startup coi một document `processing` là đã treo.
+    ingest_timeout_seconds: int = Field(default=900, validation_alias="INGEST_TIMEOUT_SECONDS")
     max_retrieval_results: int = Field(default=8, validation_alias="MAX_RETRIEVAL_RESULTS")
     rrf_k: int = Field(default=60, validation_alias="RRF_K")
     chat_rate_limit_per_minute: int = Field(default=30, validation_alias="CHAT_RATE_LIMIT_PER_MINUTE")

@@ -13,11 +13,16 @@ async def health() -> HealthResponse:
 
 @router.get("/ready", response_model=ReadyResponse)
 async def ready(request: Request) -> ReadyResponse:
-    settings = request.app.state.settings
     database = await check_database(getattr(request.app.state, "pool", None))
+    storage = request.app.state.storage
+    storage_configured = storage.configured
+    # Readiness phải phản ánh khả năng truy cập S3 thật (credentials/quyền), không chỉ
+    # việc bucket đã được khai báo. Kết quả được cache ngắn ở StorageService.
+    storage_reachable = await storage.check_cached() if storage_configured else False
     checks = DependencyStatus(
         database=database,
-        storage_configured=request.app.state.storage.configured,
+        storage_configured=storage_configured,
+        storage_reachable=storage_reachable,
         dify_configured=request.app.state.dify.configured,
         embedding_configured=request.app.state.embedding.configured,
     )
@@ -25,5 +30,5 @@ async def ready(request: Request) -> ReadyResponse:
     return ReadyResponse(
         status="ready" if all_ready else "not_ready",
         checks=checks,
-        message=None if all_ready else "Một hoặc nhiều dependency chưa được cấu hình",
+        message=None if all_ready else "Một hoặc nhiều dependency chưa sẵn sàng hoặc chưa được cấu hình",
     )

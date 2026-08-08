@@ -1,4 +1,5 @@
 import asyncio
+import time
 from io import BytesIO
 
 import boto3
@@ -20,6 +21,7 @@ class StorageService:
                 }
             )
         self.client = boto3.client("s3", **client_kwargs)
+        self._check_cache: tuple[float, bool] | None = None
 
     @property
     def configured(self) -> bool:
@@ -62,3 +64,13 @@ class StorageService:
             return True
         except Exception:
             return False
+
+    async def check_cached(self, *, ttl: float = 30.0) -> bool:
+        """`check()` với cache ngắn để health polling không gọi S3 liên tục."""
+        now = time.monotonic()
+        cached = self._check_cache
+        if cached is not None and now - cached[0] < ttl:
+            return cached[1]
+        result = await self.check()
+        self._check_cache = (now, result)
+        return result
