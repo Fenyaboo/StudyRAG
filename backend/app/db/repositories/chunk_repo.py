@@ -1,4 +1,3 @@
-import json
 from typing import Any
 from uuid import UUID
 
@@ -42,7 +41,10 @@ class ChunkRepository:
                             document_id,
                             item["content"],
                             vector_literal(item["embedding"]),
-                            json.dumps(item.get("metadata", {}), ensure_ascii=False),
+                            # Pool đã đăng ký codec jsonb (encoder=json.dumps) trong
+                            # app/db/connection.py. Nếu tự json.dumps ở đây thì giá trị bị
+                            # encode hai lần và đọc về sẽ là string thay vì dict.
+                            item.get("metadata", {}),
                         )
                         for item in chunks
                     ],

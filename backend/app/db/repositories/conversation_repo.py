@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import json
 from typing import Any
 from uuid import UUID
 
 import asyncpg
+
+from app.db.json_compat import as_json_list
 
 
 class ConversationRepository:
@@ -124,7 +125,8 @@ class ConversationRepository:
                     conversation_id,
                     role,
                     content,
-                    json.dumps(citations or [], ensure_ascii=False),
+                    # Codec jsonb đã tự encode; json.dumps ở đây sẽ gây double-encode.
+                    citations or [],
                     latency_ms,
                     dify_message_id,
                 )
@@ -135,7 +137,9 @@ class ConversationRepository:
                     conversation_id,
                     owner_id,
                 )
-        return dict(record)
+        message = dict(record)
+        message["citations"] = as_json_list(message.get("citations"))
+        return message
 
     async def list_messages(self, owner_id: UUID, conversation_id: UUID) -> list[dict[str, Any]]:
         async with self.pool.acquire() as conn:
@@ -150,4 +154,9 @@ class ConversationRepository:
                 owner_id,
                 conversation_id,
             )
-        return [dict(record) for record in records]
+        messages: list[dict[str, Any]] = []
+        for record in records:
+            message = dict(record)
+            message["citations"] = as_json_list(message.get("citations"))
+            messages.append(message)
+        return messages

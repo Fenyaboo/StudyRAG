@@ -4,6 +4,7 @@ from typing import Any
 from uuid import UUID
 
 from app.core.config import Settings
+from app.db.json_compat import as_json_dict
 from app.db.repositories.chunk_repo import ChunkRepository
 from app.services.embedding import EmbeddingService
 
@@ -58,7 +59,7 @@ class HybridRetriever:
                 id=str(item["row"]["id"]),
                 document_id=item["row"]["document_id"],
                 content=str(item["row"]["content"]),
-                metadata=dict(item["row"].get("metadata") or {}),
+                metadata=as_json_dict(item["row"].get("metadata")),
                 document_name=str(item["row"].get("filename") or item["row"].get("title") or "Tài liệu"),
                 title=str(item["row"].get("title") or "Tài liệu"),
                 score=min(1.0, float(item["rrf"]) / max_rrf),
