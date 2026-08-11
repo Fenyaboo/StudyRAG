@@ -1,0 +1,11 @@
+# Tập dependency AI tùy chọn. Cài khi và chỉ khi AI_FEATURES_ENABLED=true.
+#   pip install -r backend/requirements.txt -r backend/requirements-ai.txt
+#
+# Ở AI_Disabled_Mode các package này KHÔNG được cài vào Runtime_Image;
+# scripts/verify_no_ml_packages.py sẽ làm build thất bại nếu chúng xuất hiện.
+# Chỉ thị --extra-index-url nằm ở đây vì chỉ wheel CPU của torch cần nó.
+--extra-index-url https://download.pytorch.org/whl/cpu
+numpy==2.5.1
+torch==2.13.0+cpu
+transformers==4.48.3
+sentence-transformers==3.4.1

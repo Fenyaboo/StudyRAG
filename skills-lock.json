@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "skills": {
+    "clean-code": {
+      "source": "davila7/claude-code-templates",
+      "sourceType": "github",
+      "skillPath": "cli-tool/components/skills/development/clean-code/SKILL.md",
+      "computedHash": "723e4955a7f12526cc4a182f085e41495bcbb8fae232e491e82e10926597624b"
+    },
+    "code-reviewer": {
+      "source": "davila7/claude-code-templates",
+      "sourceType": "github",
+      "skillPath": "cli-tool/components/skills/development/code-reviewer/SKILL.md",
+      "computedHash": "38c6f682e04102f38ccc8c5ee4edd79c0a3e66ba2cbd61f810b346cb5b0f1223"
+    },
+    "frontend-design": {
+      "source": "davila7/claude-code-templates",
+      "sourceType": "github",
+      "skillPath": "cli-tool/components/skills/creative-design/frontend-design/SKILL.md",
+      "computedHash": "063a0e6448123cd359ad0044cc46b0e490cc7964d45ef4bb9fd842bd2ffbca67"
+    },
+    "ui-ux-pro-max": {
+      "source": "davila7/claude-code-templates",
+      "sourceType": "github",
+      "skillPath": "cli-tool/components/skills/creative-design/ui-ux-pro-max/SKILL.md",
+      "computedHash": "c9564c4ff18ad8e61adf874b48556c7007428654785e4f6cbb0f0a071ac1c7d5"
+    }
+  }
+}

@@ -88,10 +88,7 @@ async def _run_ingest_pipeline(
     """Parse -> chunk -> embed -> lưu chunk -> đánh dấu ready. Raise nếu thất bại."""
     pool = request.app.state.pool
     document_repo = DocumentRepository(pool)
-    chunk_repo = ChunkRepository(pool)
     parser = request.app.state.pdf_parser
-    chunker = request.app.state.chunker
-    embedding = request.app.state.embedding
 
     parsed = parser.parse(content)
     if parsed.requires_ocr:
@@ -101,9 +98,31 @@ async def _run_ingest_pipeline(
             document_id,
             status="ocr_required",
             page_count=parsed.page_count,
+            chunk_count=0,
             error_message="PDF không có lớp text; cần OCR trước khi lập chỉ mục.",
         )
         return
+
+    if not bool(getattr(request.app.state, "ai_enabled", False)):
+        # Storage_Only_Ingest: dừng ngay sau parse. Không gọi chunker, không gọi embedding,
+        # không thao tác nào trên document_chunks. Nhánh này cố tình nằm trong
+        # `_run_ingest_pipeline` để vẫn được `asyncio.wait_for` của `_process_document`
+        # bảo vệ bằng timeout.
+        await _set_status(
+            document_repo,
+            owner_id,
+            document_id,
+            status="stored",
+            page_count=parsed.page_count,
+            chunk_count=0,
+            error_message=None,
+        )
+        return
+
+    # Chỉ đọc tầng AI sau nhánh tắt: ở AI_Disabled_Mode chunker/embedding là None.
+    chunk_repo = ChunkRepository(pool)
+    chunker = request.app.state.chunker
+    embedding = request.app.state.embedding
 
     chunks = chunker.build(document_id, parsed.pages, doc_type=doc_type)
     if not chunks:
@@ -264,7 +283,7 @@ async def list_documents(
 ) -> DocumentListResponse:
     if subject and subject not in {"Toán", "Lý", "Hóa", "Chung"}:
         raise AppError(422, "Môn học không hợp lệ", code="invalid_subject")
-    if status_filter and status_filter not in {"processing", "ready", "failed", "ocr_required"}:
+    if status_filter and status_filter not in {"processing", "stored", "ready", "failed", "ocr_required"}:
         raise AppError(422, "Trạng thái không hợp lệ", code="invalid_status")
     records, total = await DocumentRepository(pool).list(
         current_user.id,

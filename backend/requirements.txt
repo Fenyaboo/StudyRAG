@@ -1,4 +1,3 @@
---extra-index-url https://download.pytorch.org/whl/cpu
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
 pydantic==2.13.4
@@ -9,9 +8,6 @@ boto3==1.36.26
 httpx==0.28.1
 PyJWT[crypto]==2.10.1
 PyMuPDF==1.25.3
-sentence-transformers==3.4.1
-transformers==4.48.3
-torch==2.13.0+cpu
-numpy==2.5.1
 pytest==8.3.4
 pytest-asyncio==0.25.3
+hypothesis==6.125.3

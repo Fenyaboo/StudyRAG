@@ -3,7 +3,7 @@
 ## Quy ước DAG
 
 - Mỗi node có `id` ổn định dạng `IRP-NNN`; không đổi ID khi sắp xếp hoặc cập nhật nội dung task.
-- `status` ban đầu của mọi task là `pending`; chỉ chuyển trạng thái khi task được thực thi và có bằng chứng validation tương ứng.
+- `status` ban đầu của mọi task là `pending`; chỉ chuyển trạng thái khi task được thực thi và có bằng chứng validation tương ứng. Ngoại lệ hiện tại: sáu task bị đặt `deferred` vì tính năng AI đang tạm ngưng, xem mục "Trạng thái `deferred` trong thời gian AI tạm ngưng" ngay sau bảng DAG.
 - `dependencies` là các task phải hoàn tất trước. Danh sách rỗng (`[]`) nghĩa là có thể bắt đầu ngay.
 - Các lệnh validation chạy từ thư mục gốc repository, dùng fake/local dependency và không được đọc, in hoặc ghi `.env`, credential, token hay secret.
 - Các task Property 1/2 phải được viết và chạy trên code UNFIXED trước khi implementation. Property 1 được phép FAIL ở giai đoạn khám phá; Property 2 phải PASS để chốt baseline.
@@ -15,21 +15,27 @@
 |---|---:|---|---|---|---|
 | `IRP-001` | P0 | `pending` | **Property 1: Bug Condition** — khám phá document_id mismatch | `[]` | Có, cùng các task khám phá `IRP-002`–`IRP-005` |
 | `IRP-002` | P0 | `pending` | **Property 1: Bug Condition** — khám phá processing vô hạn/status race | `[]` | Có, cùng `IRP-001`, `IRP-003`–`IRP-005` |
-| `IRP-003` | P1 | `pending` | **Property 1: Bug Condition** — khám phá cache model/tokenizer không nhất quán | `[]` | Có, cùng các task khám phá khác |
-| `IRP-004` | P1 | `pending` | **Property 1: Bug Condition** — khám phá chunking tokenize lặp | `[]` | Có, cùng các task khám phá khác |
+| `IRP-003` | P1 | `deferred` | **Property 1: Bug Condition** — khám phá cache model/tokenizer không nhất quán | `[]` | Có, cùng các task khám phá khác |
+| `IRP-004` | P1 | `deferred` | **Property 1: Bug Condition** — khám phá chunking tokenize lặp | `[]` | Có, cùng các task khám phá khác |
 | `IRP-005` | P1 | `pending` | **Property 1: Bug Condition** — khám phá readiness S3 báo sai/burst request | `[]` | Có, cùng các task khám phá khác |
 | `IRP-006` | P0 | `pending` | **Property 2: Preservation** — baseline document create/owner/cleanup | `[IRP-001]` | Có, cùng `IRP-007`–`IRP-010` |
 | `IRP-007` | P0 | `pending` | **Property 2: Preservation** — baseline state/API/health behavior | `[IRP-002]` | Có, cùng `IRP-006`, `IRP-008`–`IRP-010` |
-| `IRP-008` | P1 | `pending` | **Property 2: Preservation** — baseline model loading/cache contract | `[IRP-003]` | Có, cùng các task preservation khác |
-| `IRP-009` | P1 | `pending` | **Property 2: Preservation** — baseline chunk metadata/id contract | `[IRP-004]` | Có, cùng các task preservation khác |
+| `IRP-008` | P1 | `deferred` | **Property 2: Preservation** — baseline model loading/cache contract | `[IRP-003]` | Có, cùng các task preservation khác |
+| `IRP-009` | P1 | `deferred` | **Property 2: Preservation** — baseline chunk metadata/id contract | `[IRP-004]` | Có, cùng các task preservation khác |
 | `IRP-010` | P1 | `pending` | **Property 2: Preservation** — baseline readiness/liveness contract | `[IRP-005]` | Có, cùng các task preservation khác |
 | `IRP-011` | P0 | `pending` | Sửa document_id mismatch trong create/ingest | `[IRP-001, IRP-006]` | Không với `IRP-012`; có thể song song với P1 nếu tách file, nhưng merge wiring phải nối tiếp |
 | `IRP-012` | P0 | `pending` | Bounded status transition, timeout và recovery | `[IRP-002, IRP-007, IRP-011]` | Không; dùng chung repository/orchestration với `IRP-011` |
-| `IRP-013` | P1 | `pending` | Canonical model/tokenizer cache và Docker layer reuse | `[IRP-003, IRP-008, IRP-012]` | Không với task sửa P0 do dùng chung `main.py`/config; sau đó mở interface cho `IRP-014`, `IRP-015` |
-| `IRP-014` | P1 | `pending` | Chunker linear tokenization và giữ data contract | `[IRP-004, IRP-009, IRP-013]` | Có thể song song với `IRP-015` sau `IRP-013` nếu không cùng sửa file wiring |
+| `IRP-013` | P1 | `deferred` | Canonical model/tokenizer cache và Docker layer reuse | `[IRP-003, IRP-008, IRP-012]` | Không với task sửa P0 do dùng chung `main.py`/config; sau đó mở interface cho `IRP-014`, `IRP-015` |
+| `IRP-014` | P1 | `deferred` | Chunker linear tokenization và giữ data contract | `[IRP-004, IRP-009, IRP-013]` | Có thể song song với `IRP-015` sau `IRP-013` nếu không cùng sửa file wiring |
 | `IRP-015` | P1 | `pending` | Readiness S3 thật với TTL/single-flight, giữ healthcheck | `[IRP-005, IRP-010, IRP-012, IRP-013]` | Có thể song song với `IRP-014`; các thay đổi chung ở `main.py`/config phải được serialize |
 | `IRP-016` | P2 | `pending` | Integration/regression, lint/test/build và deploy smoke checklist | `[IRP-011, IRP-012, IRP-013, IRP-014, IRP-015]` | Không; là gate tích hợp cuối |
 | `IRP-017` | P2 | `pending` | Checkpoint phát hành và xác nhận toàn bộ DAG | `[IRP-016]` | Không |
+
+### Trạng thái `deferred` trong thời gian AI tạm ngưng
+
+Spec `remove-ai-features-upgrade` đặt `AI_FEATURES_ENABLED=false` làm mặc định và gỡ `torch`, `transformers`, `sentence-transformers`, `numpy` khỏi `backend/requirements.txt` (bốn package chuyển sang tập tùy chọn `backend/requirements-ai.txt`). Sáu task phụ thuộc embedding hoặc chunker/tokenizer — `IRP-003`, `IRP-004`, `IRP-008`, `IRP-009`, `IRP-013`, `IRP-014` — vì thế không còn căn cứ và được đặt `deferred`. Mười một task còn lại giữ `pending`, gồm chín task không phải gate (`IRP-001`, `IRP-002`, `IRP-005`, `IRP-006`, `IRP-007`, `IRP-010`, `IRP-011`, `IRP-012`, `IRP-015`) cùng hai gate `IRP-016` và `IRP-017`; sáu cộng mười một vẫn bằng mười bảy ID.
+
+**Điều kiện hoàn nguyên:** khi `AI_FEATURES_ENABLED=true` và tập dependency AI tùy chọn `backend/requirements-ai.txt` được cài, sáu task `deferred` trở lại `pending` với ID, mục tiêu và acceptance criteria không đổi.
 
 ## Chi tiết task
 
@@ -82,7 +88,8 @@
 ### IRP-003 — **Property 1: Bug Condition** - Khám phá cache model/tokenizer không nhất quán
 
 - **Priority:** P1
-- **Status:** `pending`
+- **Status:** `deferred`
+- **Lý do hoãn:** Task chỉ khám phá cache model/tokenizer của embedding, nên không còn căn cứ trong thời gian `AI_Disabled_Mode` có hiệu lực (`AI_FEATURES_ENABLED=false`, `torch`/`transformers`/`sentence-transformers`/`numpy` không được cài).
 - **Dependencies:** `[]`
 - **Có thể chạy song song:** Có, độc lập với các exploratory test khác.
 - **Mục tiêu:** Chứng minh build/runtime dùng khác model id, cache root hoặc layout; kiểm tra offline runtime không được âm thầm fallback sang root thứ hai hay tải lại ngoài dự kiến.
@@ -104,7 +111,8 @@
 ### IRP-004 — **Property 1: Bug Condition** - Khám phá chunker tokenize lặp và phá hợp đồng
 
 - **Priority:** P1
-- **Status:** `pending`
+- **Status:** `deferred`
+- **Lý do hoãn:** Task đo hành vi tokenize của chunker qua tokenizer thật, nên không còn căn cứ trong thời gian `AI_Disabled_Mode` có hiệu lực (`AI_FEATURES_ENABLED=false`, `transformers` không được cài và ingest không gọi chunker).
 - **Dependencies:** `[]`
 - **Có thể chạy song song:** Có, dùng tokenizer spy và file test riêng.
 - **Mục tiêu:** Surface counterexamples cho tokenize lại theo cửa sổ, chi phí không tuyến tính, chunk vượt `220`, overlap sai, mất metadata/id hoặc không kết thúc với empty/Unicode/long-token input.
@@ -190,7 +198,8 @@
 ### IRP-008 — **Property 2: Preservation** - Baseline model loading/cache contract
 
 - **Priority:** P1
-- **Status:** `pending`
+- **Status:** `deferred`
+- **Lý do hoãn:** Task chốt baseline cho model loading và cache của embedding, nên không còn căn cứ trong thời gian `AI_Disabled_Mode` có hiệu lực (`AI_FEATURES_ENABLED=false`, `EmbeddingService` không được khởi tạo).
 - **Dependencies:** `[IRP-003]`
 - **Có thể chạy song song:** Có với `IRP-006`, `IRP-007`, `IRP-009`, `IRP-010`.
 - **Mục tiêu:** Quan sát behavior đúng của model/tokenizer khi config hợp lệ: dimension check, lazy load/local fake load, batch behavior và không thay đổi public embedding contract.
@@ -211,7 +220,8 @@
 ### IRP-009 — **Property 2: Preservation** - Baseline chunk metadata/id contract
 
 - **Priority:** P1
-- **Status:** `pending`
+- **Status:** `deferred`
+- **Lý do hoãn:** Task chốt baseline cho contract metadata/id do chunker và tokenizer sinh ra, nên không còn căn cứ trong thời gian `AI_Disabled_Mode` có hiệu lực (`AI_FEATURES_ENABLED=false`, ingest dừng ở trạng thái `stored` với `chunk_count = 0`).
 - **Dependencies:** `[IRP-004]`
 - **Có thể chạy song song:** Có với preservation task của các nhóm khác.
 - **Mục tiêu:** Chốt observable behavior đang đúng cho input ngắn/hợp lệ: `max_tokens=220`, overlap hiện có khi áp dụng được, metadata nguồn, stable id và Unicode.
@@ -311,7 +321,8 @@
 ### IRP-013 — Canonical model/tokenizer cache và Docker layer/cache reuse
 
 - **Priority:** P1
-- **Status:** `pending`
+- **Status:** `deferred`
+- **Lý do hoãn:** Task xây `ModelRuntime` dùng chung cho embedding và tokenizer cùng cache model trong Docker, nên không còn căn cứ trong thời gian `AI_Disabled_Mode` có hiệu lực (`AI_FEATURES_ENABLED=false`, `backend/Dockerfile` đã bỏ `HF_HOME`/`SENTENCE_TRANSFORMERS_HOME` và bước preload model).
 - **Dependencies:** `[IRP-003, IRP-008, IRP-012]`
 - **Có thể chạy song song:** Không với P0 do dùng chung lifecycle/config; sau task này `IRP-014` và `IRP-015` có thể tách nhánh logic.
 - **Mục tiêu:** Có một `ModelRuntime`/provider dùng chung, canonical root `/opt/huggingface`, cùng model id giữa build/runtime và Docker layer order cho phép reuse cache mà không tạo layout thứ hai.
@@ -343,7 +354,8 @@
 ### IRP-014 — Chunker linear tokenization và giữ data contract
 
 - **Priority:** P1
-- **Status:** `pending`
+- **Status:** `deferred`
+- **Lý do hoãn:** Task sửa chunker để tokenize tuyến tính bằng tokenizer thật, nên không còn căn cứ trong thời gian `AI_Disabled_Mode` có hiệu lực (`AI_FEATURES_ENABLED=false`, `transformers` không được cài và `Storage_Only_Ingest` gọi chunker 0 lần).
 - **Dependencies:** `[IRP-004, IRP-009, IRP-013]`
 - **Có thể chạy song song:** Có với `IRP-015` sau `IRP-013` nếu không cùng chỉnh `main.py`/config; test merge phải chạy lại ở `IRP-016`.
 - **Mục tiêu:** Tokenize mỗi page/đơn vị đúng một lần, cắt cửa sổ token tuyến tính với `max_tokens=220`, `overlap=32` (stride `188`), đồng thời giữ metadata và stable id.
@@ -372,6 +384,7 @@
 - **Priority:** P1
 - **Status:** `pending`
 - **Dependencies:** `[IRP-005, IRP-010, IRP-012, IRP-013]`
+- **Ghi chú dependency:** `dependencies` chứa `IRP-013` đang ở `deferred`, nên task này chỉ thực thi được sau khi `AI_Enabled_Mode` được bật lại (`AI_FEATURES_ENABLED=true` cùng tập dependency AI tùy chọn `backend/requirements-ai.txt`), hoặc sau khi `IRP-013` được loại khỏi `dependencies` — phần readiness S3 với TTL/single-flight của task không phụ thuộc embedding nên vẫn triển khai được theo cách thứ hai.
 - **Có thể chạy song song:** Có với `IRP-014` sau `IRP-013`; nếu cả hai sửa wiring chung thì phải serialize phần `main.py`/config.
 - **Mục tiêu:** `/ready` chỉ ready khi S3 thực sự truy cập được, cache cả success/failure bằng TTL bounded và lock single-flight; `/health` cùng healthcheck Compose tiếp tục là liveness nhẹ.
 - **File dự kiến:**
@@ -402,6 +415,7 @@
 - **Priority:** P2
 - **Status:** `pending`
 - **Dependencies:** `[IRP-011, IRP-012, IRP-013, IRP-014, IRP-015]`
+- **Ghi chú dependency:** `dependencies` chứa `IRP-013` và `IRP-014` đang ở `deferred`, nên gate tích hợp này chỉ chạy được đủ phạm vi sau khi `AI_Enabled_Mode` được bật lại (`AI_FEATURES_ENABLED=true` cùng tập dependency AI tùy chọn `backend/requirements-ai.txt`), hoặc sau khi hai dependency bị hoãn được loại khỏi `dependencies` và các acceptance criteria về cache model cùng chunk contract được tách khỏi phạm vi gate.
 - **Có thể chạy song song:** Không; đây là task tích hợp sau toàn bộ implementation. Các test độc lập có thể được chia runner sau khi contract merge ổn định.
 - **Mục tiêu:** Xác nhận sáu nhóm sửa hoạt động cùng nhau, không hồi quy API/isolation/resource, và lập checklist smoke deploy không cần đọc hoặc in secret.
 - **File dự kiến:**

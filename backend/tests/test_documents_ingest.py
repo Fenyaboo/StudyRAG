@@ -96,6 +96,10 @@ def _fake_request(pool: FakePool, *, timeout: float, encode) -> SimpleNamespace:
     )
     chunk = SimpleNamespace(id="chunk-1", content="nội dung", metadata={"page": 1})
     state = SimpleNamespace(
+        # Bắt buộc khai báo tường minh: `getattr(state, "ai_enabled", False)` mặc định
+        # False, nên thiếu dòng này các test dưới đây sẽ âm thầm kiểm chứng nhánh
+        # Storage_Only_Ingest thay vì đường lập chỉ mục.
+        ai_enabled=True,
         pool=pool,
         settings=SimpleNamespace(ingest_timeout_seconds=timeout),
         pdf_parser=SimpleNamespace(parse=lambda content: parsed),

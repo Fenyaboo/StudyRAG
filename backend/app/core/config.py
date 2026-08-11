@@ -1,8 +1,11 @@
 import os
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_AI_FLAG_TRUE_VALUES = frozenset({"true", "1", "yes", "on"})
+_AI_FLAG_FALSE_VALUES = frozenset({"false", "0", "no", "off"})
 
 
 def model_cache_dir() -> str | None:
@@ -69,6 +72,35 @@ class Settings(BaseSettings):
     rrf_k: int = Field(default=60, validation_alias="RRF_K")
     chat_rate_limit_per_minute: int = Field(default=30, validation_alias="CHAT_RATE_LIMIT_PER_MINUTE")
     log_level: str = Field(default="INFO", validation_alias="LOG_LEVEL")
+    # Cờ duy nhất bật/tắt toàn bộ tính năng AI (embedding, hybrid retrieval, chat qua Dify).
+    # Giá trị được phân giải một lần cho mỗi tiến trình vì `get_settings()` có lru_cache.
+    ai_features_enabled: bool = Field(default=False, validation_alias="AI_FEATURES_ENABLED")
+
+    @field_validator("ai_features_enabled", mode="before")
+    @classmethod
+    def _parse_ai_features_enabled(cls, value: object) -> bool:
+        """Parse AI_FEATURES_ENABLED thành total function trên miền `str | bool | None`.
+
+        Chuỗi rỗng hoặc chỉ có khoảng trắng trả về False; pydantic mặc định coi đây là
+        lỗi validate, nên validator này là lý do chính để tồn tại. Giá trị ngoài tập hợp
+        lệ raise ValueError nêu tên biến và tập giá trị hợp lệ, thay vì âm thầm dùng
+        giá trị mặc định.
+        """
+        if isinstance(value, bool):
+            return value
+        if value is None:
+            return False
+        text = str(value).strip().lower()
+        if not text:
+            return False
+        if text in _AI_FLAG_TRUE_VALUES:
+            return True
+        if text in _AI_FLAG_FALSE_VALUES:
+            return False
+        raise ValueError(
+            "AI_FEATURES_ENABLED không hợp lệ. Giá trị hợp lệ: "
+            "true, 1, yes, on (bật) hoặc false, 0, no, off (tắt)."
+        )
 
     @property
     def cors_origins(self) -> list[str]:

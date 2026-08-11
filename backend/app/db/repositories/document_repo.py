@@ -176,11 +176,21 @@ class DocumentRepository:
                 "SELECT status, count(*) AS count FROM public.documents WHERE owner_id=$1 GROUP BY status",
                 owner_id,
             )
-        result = {"total": 0, "ready": 0, "processing": 0, "failed": 0, "ocr_required": 0}
+        result = {
+            "total": 0,
+            "ready": 0,
+            "stored": 0,
+            "processing": 0,
+            "failed": 0,
+            "ocr_required": 0,
+        }
         for record in records:
             key = str(record["status"])
             count = int(record["count"])
-            result[key] = count
+            # `result.get(key, 0) + count` thay cho `result[key] = count`: một status lạ
+            # từ DB (ví dụ migration mới đã chạy ở môi trường khác) không được phép gây
+            # KeyError, vì endpoint stats hỏng sẽ kéo theo cả danh sách tài liệu ở frontend.
+            result[key] = result.get(key, 0) + count
             result["total"] += count
         return result
 

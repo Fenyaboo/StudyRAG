@@ -5,7 +5,9 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 
-DocumentStatus = Literal["processing", "ready", "failed", "ocr_required"]
+# `stored`: PDF đã lưu trữ và biết số trang nhưng chưa lập chỉ mục (chunk_count = 0),
+# nên không tham gia truy hồi. Khác `ready` là đã lập chỉ mục và tham gia truy hồi.
+DocumentStatus = Literal["processing", "stored", "ready", "failed", "ocr_required"]
 DocumentType = Literal["exam", "textbook"]
 Subject = Literal["Toán", "Lý", "Hóa", "Chung"]
 

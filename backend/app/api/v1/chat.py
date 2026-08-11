@@ -5,10 +5,10 @@ from collections.abc import AsyncIterator
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 
-from app.api.deps import CurrentUser, PoolDep
+from app.api.deps import CurrentUser, PoolDep, require_ai_features
 from app.core.exceptions import AppError
 from app.db.repositories.conversation_repo import ConversationRepository
 from app.db.repositories.document_repo import DocumentRepository
@@ -16,7 +16,14 @@ from app.schemas.chat import ChatDone, ChatRequest, Citation
 from app.services.dify import DifyError
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/chat", tags=["chat"])
+router = APIRouter(
+    prefix="/chat",
+    tags=["chat"],
+    # Cổng đặt ở mức router: chạy sau xác thực và trước khi FastAPI validate body,
+    # nên ở AI_Disabled_Mode handler không chạy -> không tạo conversation, không ghi
+    # message, không truy vấn document_chunks, không gọi Dify.
+    dependencies=[Depends(require_ai_features)],
+)
 
 
 def _sse(event: str, data: dict[str, Any]) -> str:

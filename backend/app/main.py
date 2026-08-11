@@ -10,14 +10,12 @@ from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.core.exceptions import register_exception_handlers
 from app.db.connection import close_pool, create_pool
-from app.db.repositories.chunk_repo import ChunkRepository
 from app.db.repositories.document_repo import DocumentRepository
-from app.services.chunker import SmartChunker
-from app.services.dify import DifyClient
-from app.services.embedding import EmbeddingService
+from app.schemas.system import HealthResponse
+from app.services.ai_runtime import build_ai_runtime, build_retriever
 from app.services.pdf_parser import PDFParser
 from app.services.rate_limit import InMemoryRateLimiter
-from app.services.retriever import HybridRetriever
+from app.services.readiness import evaluate_readiness
 from app.services.storage import StorageService
 
 logging.basicConfig(level=getattr(logging, get_settings().log_level.upper(), logging.INFO))
@@ -28,16 +26,28 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     settings = get_settings()
     app.state.settings = settings
+    app.state.ai_enabled = settings.ai_features_enabled
     app.state.storage = StorageService(settings)
-    app.state.dify = DifyClient(settings)
-    app.state.embedding = EmbeddingService(settings)
     app.state.pdf_parser = PDFParser()
-    app.state.chunker = SmartChunker()
     app.state.rate_limiter = InMemoryRateLimiter(settings.chat_rate_limit_per_minute)
+    # Đặt tường minh None để `getattr(state, "dify", None)` là guard cho một giá trị
+    # thật sự có thể None, không phải cái cớ che lỗi chính tả.
+    app.state.dify = None
+    app.state.embedding = None
+    app.state.chunker = None
+    app.state.retriever = None
+    if settings.ai_features_enabled:
+        # AIDependencyError cố tình không bị bắt: thiếu dependency AI phải làm sập
+        # startup thay vì âm thầm rơi về AI_Disabled_Mode.
+        ai = build_ai_runtime(settings)
+        app.state.dify = ai.dify
+        app.state.embedding = ai.embedding
+        app.state.chunker = ai.chunker
     app.state.pool = None
     try:
         app.state.pool = await create_pool(settings)
-        app.state.retriever = HybridRetriever(ChunkRepository(app.state.pool), app.state.embedding, settings)
+        if settings.ai_features_enabled:
+            app.state.retriever = build_retriever(app.state.pool, app.state.embedding, settings)
         logger.info("Database pool initialized")
     except Exception:
         app.state.retriever = None
@@ -53,6 +63,7 @@ async def lifespan(app: FastAPI):
                 logger.warning("Đã đánh dấu failed cho %s document treo ở processing", recovered)
         except Exception:
             logger.exception("Startup recovery cho document treo ở processing thất bại; bỏ qua")
+    logger.info("AI features enabled: %s", settings.ai_features_enabled)
     try:
         yield
     finally:
@@ -91,15 +102,14 @@ async def root() -> JSONResponse:
 
 @app.get("/health", include_in_schema=False)
 async def root_health() -> JSONResponse:
-    return JSONResponse({"status": "ok", "service": "studyrag-api", "version": "0.1.0"})
+    # Dùng schema thay vì literal để giá trị không bị hard-code ở hai chỗ.
+    return JSONResponse(HealthResponse().model_dump())
 
 
 @app.get("/ready", include_in_schema=False)
 async def root_ready(request: Request) -> JSONResponse:
-    database = bool(getattr(request.app.state, "pool", None))
-    storage = request.app.state.storage
-    configured = storage.configured and request.app.state.dify.configured and request.app.state.embedding.configured
-    # Nhất quán với /api/v1/ready: kiểm tra S3 thật sự truy cập được (có cache 30s).
-    storage_reachable = await storage.check_cached() if storage.configured else False
-    ready = database and configured and storage_reachable
-    return JSONResponse({"status": "ready" if ready else "not_ready"})
+    # Dùng chung `evaluate_readiness` với /api/v1/ready để hai probe không thể trôi lệch.
+    snapshot = await evaluate_readiness(request.app.state)
+    return JSONResponse(
+        {"status": "ready" if snapshot.ready else "not_ready", "ai_enabled": snapshot.ai_enabled}
+    )

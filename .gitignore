@@ -5,6 +5,8 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+# Example database của Hypothesis, sinh ra khi chạy property test.
+.hypothesis/
 .venv/
 venv/
 *.egg-info/
