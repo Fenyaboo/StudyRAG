@@ -34,12 +34,8 @@ COPY --from=builder /opt/venv /opt/venv
 # Gate build: image vi phạm không bao giờ được tạo nên không thể publish.
 # Bản đầy đủ của kiểm tra này nằm ở scripts/verify_no_ml_packages.py (dùng cho CI);
 # ở đây viết inline vì build context là `backend/` nên scripts/ ở gốc repo không có trong context.
-RUN python -c "\
-import importlib.util, sys; \
-banned = [n for n in ('torch','transformers','sentence_transformers','numpy') if importlib.util.find_spec(n)]; \
-sys.exit('Runtime image chua package AI bi cam o AI_Disabled_Mode: ' + ', '.join(banned)) if banned else None; \
-sys.exit('Thieu PyMuPDF (module fitz)') if importlib.util.find_spec('fitz') is None else None; \
-print('OK: runtime image khong chua package ML, PyMuPDF kha dung')"
+# Viết trên MỘT dòng, không dùng backslash nối dòng: nối dòng sẽ vỡ nếu file bị CRLF.
+RUN python -c "import importlib.util as u, sys; banned=[n for n in ('torch','transformers','sentence_transformers','numpy') if u.find_spec(n)]; sys.exit('Runtime image chua package AI bi cam o AI_Disabled_Mode: '+', '.join(banned)) if banned else None; sys.exit('Thieu PyMuPDF (module fitz)') if u.find_spec('fitz') is None else None; print('OK: runtime image khong chua package ML, PyMuPDF kha dung')"
 
 COPY app /app/app
 

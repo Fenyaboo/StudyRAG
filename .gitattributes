@@ -1,0 +1,25 @@
+# Chuẩn hoá line ending: repo luôn lưu LF, checkout cũng LF trên mọi OS.
+#
+# Lý do bắt buộc: shell script có shebang kết thúc bằng CRLF sẽ làm Linux báo
+# "command not found" vì kernel đi tìm interpreter tên `bash\r`. Dockerfile dùng
+# backslash nối dòng cũng vỡ khi gặp CRLF. Cả hai lỗi này chỉ xuất hiện lúc deploy
+# chứ không xuất hiện trên máy dev Windows, nên phải chặn ở tầng git.
+* text=auto eol=lf
+
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sql text eol=lf
+
+# Nhị phân: không được chạm tới nội dung.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.safetensors binary
