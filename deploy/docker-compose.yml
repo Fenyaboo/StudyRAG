@@ -14,7 +14,9 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 120s
+      # 30s đủ vì startup không còn tải model embedding (~500MB) như trước; ngưỡng 120s
+      # cũ chỉ làm container hỏng bị báo unhealthy muộn hơn.
+      start_period: 30s
     networks:
       - studyrag
 

@@ -40,6 +40,15 @@ if [[ ! -f "${APP_DIR}/backend/.env" ]]; then
 fi
 
 echo "VPS base setup complete. Next:"
-echo "  1) Edit ${APP_DIR}/backend/.env"
-echo "  2) docker compose -f ${APP_DIR}/deploy/docker-compose.yml up -d --build"
-echo "  3) certbot --nginx -d ${DOMAIN}"
+echo "  1) Edit ${APP_DIR}/backend/.env — bắt buộc:"
+echo "       DATABASE_URL       Session Pooler port 5432 (KHÔNG dùng 6543 với asyncpg)"
+echo "       FRONTEND_ORIGINS   origin thật của frontend, ví dụ https://studyrag.bond"
+echo "                          (để mặc định localhost sẽ bị CORS chặn mọi request từ browser)"
+echo "       AI_FEATURES_ENABLED=false   giữ chế độ tạm ngưng AI"
+echo "  2) Apply migrations trong Supabase SQL Editor, theo thứ tự:"
+echo "       supabase/migrations/001_init.sql"
+echo "       supabase/migrations/002_add_stored_document_status.sql"
+echo "     Thiếu bước 002 thì upload sẽ kẹt ở trạng thái processing."
+echo "  3) docker compose -f ${APP_DIR}/deploy/docker-compose.yml up -d --build"
+echo "  4) curl -fsS http://127.0.0.1:8000/api/v1/ready   # mong đợi status=ready, ai_enabled=false"
+echo "  5) certbot --nginx -d ${DOMAIN}"
