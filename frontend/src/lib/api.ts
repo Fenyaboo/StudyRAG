@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 
-export type DocumentStatus = "processing" | "ready" | "failed" | "ocr_required";
+export type DocumentStatus = "processing" | "stored" | "ready" | "failed" | "ocr_required";
 export type Subject = "Toán" | "Lý" | "Hóa" | "Chung";
 export type DocumentType = "exam" | "textbook";
 
@@ -22,9 +22,16 @@ export interface Document {
 export interface DocumentStats {
   total: number;
   ready: number;
+  stored: number;
   processing: number;
   failed: number;
   ocr_required: number;
+}
+
+/** Trạng thái readiness của backend. `ai_enabled` là kênh duy nhất báo cờ tính năng AI. */
+export interface ReadyStatus {
+  status: "ready" | "not_ready";
+  ai_enabled: boolean;
 }
 
 export interface Citation {
@@ -98,6 +105,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
+  // Điểm đọc duy nhất của cờ tính năng AI. Timeout 5 giây để SPA không chờ vô hạn.
+  getReadiness: () => request<ReadyStatus>("/ready", { signal: AbortSignal.timeout(5000) }),
   listDocuments: (params: { subject?: string; status?: string; search?: string } = {}) => {
     const query = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => value && query.set(key, value));

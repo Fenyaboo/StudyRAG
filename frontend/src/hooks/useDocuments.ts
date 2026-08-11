@@ -3,7 +3,7 @@ import { api, type Document, type DocumentStats, type DocumentType, type Subject
 
 export function useDocuments(filters: { subject?: string; status?: string; search?: string } = {}) {
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [stats, setStats] = useState<DocumentStats>({ total: 0, ready: 0, processing: 0, failed: 0, ocr_required: 0 });
+  const [stats, setStats] = useState<DocumentStats>({ total: 0, ready: 0, stored: 0, processing: 0, failed: 0, ocr_required: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
