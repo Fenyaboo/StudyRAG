@@ -27,7 +27,7 @@ export function Features() {
       <div className="mx-auto max-w-6xl">
         <div className="flex flex-col gap-5 border-b border-carbon/12 pb-10 md:flex-row md:items-end md:justify-between">
           <h2 className="max-w-xl font-display text-[clamp(1.9rem,3.6vw,2.9rem)] font-extrabold leading-[1.05] tracking-[-0.03em] text-carbon">
-            Ba việc StudyRAG làm tốt hơn một chatbot thường
+            Ba việc Examoras làm tốt hơn một chatbot thường
           </h2>
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-carbon/45 md:pb-2">Tập trung vào việc học</p>
         </div>

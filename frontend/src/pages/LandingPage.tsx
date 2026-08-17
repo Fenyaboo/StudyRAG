@@ -1,4 +1,4 @@
-import { ArrowRight, BookOpen, LogIn } from "lucide-react";
+import { ArrowRight, BookOpen, LogIn, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Features } from "../components/landing/Features";
 import { Footer } from "../components/landing/Footer";
@@ -14,15 +14,19 @@ export function LandingPage() {
       <header className="sticky top-0 z-40 border-b border-carbon/8 bg-cream/85 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link to="/" className="flex items-center gap-2.5">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-carbon text-cream">
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-carbon text-cream shadow-sm">
               <BookOpen className="h-4.5 w-4.5" aria-hidden />
             </span>
-            <span className="font-display text-[15px] font-extrabold tracking-tight">
-              Study<span className="text-accent-500">RAG</span>
+            <span className="font-display text-[16px] font-extrabold tracking-tight">
+              Exam<span className="text-accent-500">oras</span>
             </span>
           </Link>
 
           <nav className="hidden items-center gap-8 text-xs font-medium text-carbon/60 sm:flex">
+            <Link to="/demo" className="flex items-center gap-1 font-bold text-accent-600 transition hover:text-accent-700">
+              <Sparkles className="h-3.5 w-3.5" />
+              Agentic Graph Demo
+            </Link>
             <a href="#features" className="transition hover:text-carbon">
               Tính năng
             </a>
@@ -31,22 +35,32 @@ export function LandingPage() {
             </a>
           </nav>
 
-          <Link
-            to={user ? "/dashboard" : "/auth"}
-            className="group inline-flex items-center gap-2 rounded-full border border-carbon/15 px-4 py-2 text-xs font-semibold text-carbon transition hover:border-carbon hover:bg-carbon hover:text-cream"
-          >
-            {user ? (
-              <>
-                Mở workspace
-                <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" aria-hidden />
-              </>
-            ) : (
-              <>
-                <LogIn className="h-3.5 w-3.5" aria-hidden />
-                Đăng nhập
-              </>
-            )}
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              to="/demo"
+              className="hidden items-center gap-1.5 rounded-full border border-accent-500/30 bg-accent-100/60 px-3.5 py-1.5 text-xs font-bold text-accent-600 transition hover:bg-accent-100 sm:inline-flex"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Khám phá Demo
+            </Link>
+
+            <Link
+              to={user ? "/dashboard" : "/auth"}
+              className="group inline-flex items-center gap-2 rounded-full border border-carbon/15 px-4 py-2 text-xs font-semibold text-carbon transition hover:border-carbon hover:bg-carbon hover:text-cream"
+            >
+              {user ? (
+                <>
+                  Mở workspace
+                  <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" aria-hidden />
+                </>
+              ) : (
+                <>
+                  <LogIn className="h-3.5 w-3.5" aria-hidden />
+                  Đăng nhập
+                </>
+              )}
+            </Link>
+          </div>
         </div>
       </header>
 

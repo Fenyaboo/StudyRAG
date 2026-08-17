@@ -1,12 +1,16 @@
+from __future__ import annotations
+
 import asyncio
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from app.core.config import Settings
 from app.db.json_compat import as_json_dict
 from app.db.repositories.chunk_repo import ChunkRepository
-from app.services.embedding import EmbeddingService
+
+if TYPE_CHECKING:
+    from app.services.embedding import EmbeddingService
 
 
 @dataclass(frozen=True)
@@ -21,7 +25,7 @@ class RetrievedChunk:
 
 
 class HybridRetriever:
-    def __init__(self, chunk_repo: ChunkRepository, embedding: EmbeddingService, settings: Settings) -> None:
+    def __init__(self, chunk_repo: ChunkRepository, embedding: Any, settings: Settings) -> None:
         self.chunk_repo = chunk_repo
         self.embedding = embedding
         self.limit = settings.max_retrieval_results

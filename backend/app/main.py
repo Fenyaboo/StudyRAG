@@ -12,7 +12,7 @@ from app.core.exceptions import register_exception_handlers
 from app.db.connection import close_pool, create_pool
 from app.db.repositories.document_repo import DocumentRepository
 from app.schemas.system import HealthResponse
-from app.services.ai_runtime import build_ai_runtime, build_retriever
+from app.services.ai_runtime import build_ai_runtime, build_kg_store, build_retriever
 from app.services.pdf_parser import PDFParser
 from app.services.rate_limit import InMemoryRateLimiter
 from app.services.readiness import evaluate_readiness
@@ -30,15 +30,12 @@ async def lifespan(app: FastAPI):
     app.state.storage = StorageService(settings)
     app.state.pdf_parser = PDFParser()
     app.state.rate_limiter = InMemoryRateLimiter(settings.chat_rate_limit_per_minute)
-    # Đặt tường minh None để `getattr(state, "dify", None)` là guard cho một giá trị
-    # thật sự có thể None, không phải cái cớ che lỗi chính tả.
     app.state.dify = None
     app.state.embedding = None
     app.state.chunker = None
     app.state.retriever = None
+    app.state.kg_store = build_kg_store()
     if settings.ai_features_enabled:
-        # AIDependencyError cố tình không bị bắt: thiếu dependency AI phải làm sập
-        # startup thay vì âm thầm rơi về AI_Disabled_Mode.
         ai = build_ai_runtime(settings)
         app.state.dify = ai.dify
         app.state.embedding = ai.embedding
@@ -46,6 +43,7 @@ async def lifespan(app: FastAPI):
     app.state.pool = None
     try:
         app.state.pool = await create_pool(settings)
+        app.state.kg_store = build_kg_store(app.state.pool)
         if settings.ai_features_enabled:
             app.state.retriever = build_retriever(app.state.pool, app.state.embedding, settings)
         logger.info("Database pool initialized")
@@ -71,9 +69,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="StudyRAG API",
+    title="Examoras API",
     version="0.1.0",
-    description="Vietnamese exam-study assistant with private-document RAG.",
+    description="Universal multi-lingual AI exam & study assistant with private-document RAG and Knowledge Graph.",
     lifespan=lifespan,
 )
 app.add_middleware(
@@ -97,7 +95,7 @@ async def request_id_middleware(request: Request, call_next):
 
 @app.get("/", include_in_schema=False)
 async def root() -> JSONResponse:
-    return JSONResponse({"service": "studyrag-api", "docs": "/docs", "health": "/api/v1/health"})
+    return JSONResponse({"service": "examoras-api", "docs": "/docs", "health": "/api/v1/health"})
 
 
 @app.get("/health", include_in_schema=False)

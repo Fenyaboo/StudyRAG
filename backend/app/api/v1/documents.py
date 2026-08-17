@@ -130,14 +130,30 @@ async def _run_ingest_pipeline(
     vectors = await embedding.encode([chunk.content for chunk in chunks])
     if len(vectors) != len(chunks):
         raise RuntimeError("Embedding service trả về số vector không khớp số chunk")
+    chunk_dicts = [
+        {"id": chunk.id, "content": chunk.content, "metadata": chunk.metadata, "embedding": vector}
+        for chunk, vector in zip(chunks, vectors, strict=True)
+    ]
     await chunk_repo.replace_for_document(
         owner_id,
         document_id,
-        [
-            {"id": chunk.id, "content": chunk.content, "metadata": chunk.metadata, "embedding": vector}
-            for chunk, vector in zip(chunks, vectors, strict=True)
-        ],
+        chunk_dicts,
     )
+    # Trích xuất và lập chỉ mục Knowledge Graph
+    kg_store = getattr(request.app.state, "kg_store", None)
+    if kg_store:
+        try:
+            doc_record = await document_repo.get(owner_id, document_id)
+            doc_subject = doc_record.get("subject", "Chung") if doc_record else "Chung"
+            await kg_store.ingest_document_chunks(
+                owner_id,
+                document_id,
+                chunk_dicts,
+                subject=doc_subject,
+            )
+        except Exception:
+            logger.exception("Knowledge Graph ingestion failed for document %s; continuing", document_id)
+
     await _set_status(
         document_repo,
         owner_id,
@@ -223,7 +239,7 @@ async def ingest_document(
     pool: PoolDep,
     settings: SettingsDep,
     file: Annotated[UploadFile, File(description="PDF tài liệu cần lập chỉ mục")],
-    subject: Annotated[Literal["Toán", "Lý", "Hóa", "Chung"], Form()] = "Chung",
+    subject: Annotated[str, Form()] = "Chung",
     doc_type: Annotated[Literal["exam", "textbook"], Form()] = "exam",
 ) -> IngestResponse:
     if file.content_type not in (None, "application/pdf", "application/octet-stream"):
@@ -234,6 +250,7 @@ async def ingest_document(
     if not content.startswith(b"%PDF-"):
         raise AppError(415, "File không có định dạng PDF hợp lệ", code="invalid_pdf")
 
+    subject = subject.strip()[:50] or "Chung"
     filename = _safe_filename(file.filename)
     file_hash = hashlib.sha256(content).hexdigest()
     document_repo = DocumentRepository(pool)
@@ -281,8 +298,8 @@ async def list_documents(
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ) -> DocumentListResponse:
-    if subject and subject not in {"Toán", "Lý", "Hóa", "Chung"}:
-        raise AppError(422, "Môn học không hợp lệ", code="invalid_subject")
+    if subject:
+        subject = subject.strip()
     if status_filter and status_filter not in {"processing", "stored", "ready", "failed", "ocr_required"}:
         raise AppError(422, "Trạng thái không hợp lệ", code="invalid_status")
     records, total = await DocumentRepository(pool).list(

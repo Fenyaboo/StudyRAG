@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 # nên không tham gia truy hồi. Khác `ready` là đã lập chỉ mục và tham gia truy hồi.
 DocumentStatus = Literal["processing", "stored", "ready", "failed", "ocr_required"]
 DocumentType = Literal["exam", "textbook"]
-Subject = Literal["Toán", "Lý", "Hóa", "Chung"]
+Subject = str
 
 
 class DocumentOut(BaseModel):

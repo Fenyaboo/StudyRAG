@@ -60,6 +60,7 @@ def build_retriever(pool: Any, embedding: Any, settings: Settings) -> Any:
     sau khi pool sẵn sàng.
     """
     try:
+        import app.services.embedding  # noqa: F401
         from app.db.repositories.chunk_repo import ChunkRepository
         from app.services.retriever import HybridRetriever
     except ImportError as exc:
@@ -68,3 +69,9 @@ def build_retriever(pool: Any, embedding: Any, settings: Settings) -> Any:
             f"Cài bằng: {AI_EXTRA_HINT}"
         ) from exc
     return HybridRetriever(ChunkRepository(pool), embedding, settings)
+
+
+def build_kg_store(pool: Any = None) -> Any:
+    """Dựng KnowledgeGraphStore."""
+    from app.services.knowledge_graph.store import KnowledgeGraphStore
+    return KnowledgeGraphStore(pool)

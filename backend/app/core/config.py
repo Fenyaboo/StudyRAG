@@ -37,7 +37,7 @@ class Settings(BaseSettings):
 
     app_env: str = Field(default="development", validation_alias="APP_ENV")
     frontend_origins: str = Field(
-        default="http://localhost:5173",
+        default="http://localhost:5173,https://examoras.site",
         validation_alias="FRONTEND_ORIGINS",
     )
     database_url: str = Field(default="", validation_alias="DATABASE_URL")
@@ -52,8 +52,10 @@ class Settings(BaseSettings):
     dify_api_key: str = Field(default="", validation_alias="DIFY_API_KEY")
     dify_timeout_seconds: float = Field(default=120.0, validation_alias="DIFY_TIMEOUT_SECONDS")
 
+    # Object Storage: Hỗ trợ Tencent Cloud COS (S3-compatible) & AWS S3
     s3_bucket_name: str = Field(default="", validation_alias="S3_BUCKET_NAME")
-    s3_region: str = Field(default="ap-southeast-1", validation_alias="S3_REGION")
+    s3_region: str = Field(default="ap-singapore", validation_alias="S3_REGION")
+    s3_endpoint_url: str = Field(default="", validation_alias="S3_ENDPOINT_URL")
     aws_access_key_id: str = Field(default="", validation_alias="AWS_ACCESS_KEY_ID")
     aws_secret_access_key: str = Field(default="", validation_alias="AWS_SECRET_ACCESS_KEY")
 

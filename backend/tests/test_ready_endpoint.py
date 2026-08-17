@@ -25,7 +25,7 @@ def test_root_ready_agrees_with_api_ready(api_client):
 def test_health_has_no_ai_enabled_field(api_client):
     for path in ("/api/v1/health", "/health"):
         payload = api_client.get(path).json()
-        assert payload == {"status": "ok", "service": "studyrag-api", "version": "0.1.0"}
+        assert payload == {"status": "ok", "service": "examoras-api", "version": "0.1.0"}
         assert "ai_enabled" not in payload
 
 

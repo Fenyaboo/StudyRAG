@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 
 class HealthResponse(BaseModel):
     status: str = "ok"
-    service: str = "studyrag-api"
+    service: str = "examoras-api"
     version: str = "0.1.0"
 
 

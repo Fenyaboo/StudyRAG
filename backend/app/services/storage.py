@@ -12,7 +12,14 @@ class StorageService:
     def __init__(self, settings: Settings) -> None:
         self.bucket = settings.s3_bucket_name
         self.region = settings.s3_region
+        endpoint = settings.s3_endpoint_url.strip() if settings.s3_endpoint_url else None
+        if endpoint and self.bucket and f"{self.bucket}." in endpoint:
+            # Tự động gỡ bỏ tên bucket khỏi endpoint nếu người dùng dán nhầm URL đầy đủ
+            endpoint = endpoint.replace(f"{self.bucket}.", "")
+        self.endpoint_url = endpoint or None
         client_kwargs: dict[str, object] = {"region_name": self.region, "config": Config(signature_version="s3v4")}
+        if self.endpoint_url:
+            client_kwargs["endpoint_url"] = self.endpoint_url
         if settings.aws_access_key_id and settings.aws_secret_access_key:
             client_kwargs.update(
                 {

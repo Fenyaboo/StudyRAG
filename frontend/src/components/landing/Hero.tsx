@@ -1,13 +1,24 @@
-import { ArrowRight, FileText, Quote } from "lucide-react";
+import { ArrowRight, FileText, Quote, Sparkles, Globe, Play } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const stats = [
-  { value: "< 5s", label: "Tìm đúng trang cần" },
-  { value: "100%", label: "Câu trả lời có nguồn" },
-  { value: "9 môn", label: "Bám chương trình 12" },
+  { value: "< 3s", label: "Agentic StateGraph" },
+  { value: "100%", label: "Grounded (Không ảo giác)" },
+  { value: "Global", label: "Tất cả các môn học & Đa ngôn ngữ" },
 ];
 
-const subjects = ["Toán", "Ngữ văn", "Vật lý", "Hóa học", "Sinh học", "Tiếng Anh", "Lịch sử", "Địa lý", "GDKT & PL"];
+const subjects = [
+  "Toán (Math)",
+  "Ngữ văn (Literature)",
+  "Tiếng Anh (English)",
+  "Vật lý (Physics)",
+  "Hóa học (Chemistry)",
+  "Sinh học (Biology)",
+  "Lịch sử (History)",
+  "Địa lý (Geography)",
+  "Tin học (CS)",
+  "Kinh tế & PL",
+];
 
 export function Hero() {
   return (
@@ -22,38 +33,38 @@ export function Hero() {
               <span className="absolute inset-0 rounded-full bg-accent-500" />
               <span className="absolute inset-0 animate-ping rounded-full bg-accent-500/60" />
             </span>
-            Trợ lý ôn thi của riêng bạn
+            Examoras AI · Universal Multi-lingual Assistant
           </p>
 
           <h1 className="mt-6 font-display text-[clamp(2.5rem,6.2vw,4.5rem)] font-extrabold leading-[0.98] tracking-[-0.035em] text-carbon">
-            Ôn thi lớp 12
+            Ôn thi toàn diện
             <br />
-            bằng{" "}
+            mọi môn học với{" "}
             <span className="relative whitespace-nowrap">
-              <span className="relative z-10">tài liệu</span>
-              <span aria-hidden className="absolute inset-x-[-2px] bottom-[0.12em] z-0 h-[0.34em] -rotate-[0.8deg] bg-accent-500/35" />
-            </span>{" "}
-            của chính mình
+              <span className="relative z-10 text-accent-600">tài liệu cá nhân</span>
+              <span aria-hidden className="absolute inset-x-[-2px] bottom-[0.12em] z-0 h-[0.34em] -rotate-[0.8deg] bg-accent-500/25" />
+            </span>
           </h1>
 
           <p className="mt-7 max-w-md text-[15px] leading-7 text-carbon/65">
-            Tải đề thi và sách giáo khoa lên. StudyRAG đọc hiểu, tìm đúng đoạn cần và trả lời kèm trích dẫn trang — không đoán, không nói chung chung.
+            Tải sách giáo khoa & tài liệu ôn thi lên. <strong>Examoras</strong> đọc hiểu sâu bằng <strong>Agentic RAG StateGraph</strong> và <strong>Knowledge Graph</strong>, trả lời kèm công thức LaTeX và trích dẫn chuẩn xác từng trang.
           </p>
 
-          <div className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-4">
+          <div className="mt-9 flex flex-wrap items-center gap-x-4 gap-y-4">
             <Link
-              to="/auth"
-              className="group inline-flex items-center gap-2.5 rounded-full bg-carbon px-6 py-3.5 text-sm font-semibold text-cream transition hover:shadow-hard-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500"
+              to="/demo"
+              className="group inline-flex items-center gap-2.5 rounded-full bg-accent-500 px-6 py-3.5 text-sm font-bold text-white shadow-md transition hover:bg-accent-600 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500"
             >
-              Bắt đầu miễn phí
+              <Sparkles className="h-4 w-4" />
+              Khám phá Live Demo
               <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
             </Link>
-            <a
-              href="#how-it-works"
-              className="border-b border-carbon/25 pb-0.5 text-sm font-medium text-carbon/75 transition hover:border-accent-500 hover:text-accent-600"
+            <Link
+              to="/auth"
+              className="group inline-flex items-center gap-2 rounded-full border border-carbon/20 bg-white px-5 py-3.5 text-sm font-semibold text-carbon transition hover:border-carbon hover:bg-carbon hover:text-cream"
             >
-              Xem cách hoạt động
-            </a>
+              Bắt đầu miễn phí
+            </Link>
           </div>
 
           <dl className="mt-14 grid max-w-lg grid-cols-3 gap-px overflow-hidden border-y border-carbon/10">
