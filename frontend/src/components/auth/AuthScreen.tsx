@@ -45,8 +45,8 @@ export function AuthScreen() {
       <div className={`auth-pane auth-pane-${variant} px-7 py-12 sm:px-12 sm:py-14 lg:px-14`} aria-hidden={!active}>
         <fieldset disabled={!active} className="contents">
           <Link to="/" tabIndex={active ? 0 : -1} className="inline-flex w-fit items-center gap-2.5 font-display text-[15px] font-extrabold tracking-tight text-carbon">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-carbon text-cream"><BookOpen className="h-4 w-4" /></span>
-            Study<span className="text-accent-500">RAG</span>
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-carbon text-cream shadow-sm"><BookOpen className="h-4 w-4 text-accent-400" /></span>
+            Exam<span className="text-accent-500">oras</span>
           </Link>
 
           <div className="my-auto w-full max-w-sm pt-10">
