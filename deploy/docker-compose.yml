@@ -19,24 +19,6 @@ services:
     networks:
       - examoras
 
-  dashboard:
-    image: portainer/portainer-ce:latest
-    container_name: examoras-docker-dashboard
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - /etc/localtime:/etc/localtime:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - portainer_data:/data
-    ports:
-      - "127.0.0.1:9000:9000"
-    networks:
-      - examoras
-
 networks:
   examoras:
     driver: bridge
-
-volumes:
-  portainer_data:
